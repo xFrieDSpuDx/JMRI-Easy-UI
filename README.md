@@ -2,7 +2,7 @@
 
 A lightweight web UI and REST API for [JMRI](https://www.jmri.org/) that makes it simple to browse and edit your roster, manage function labels, view/upload locomotive images, switch between layout connections and simple layout control like turnouts — all from a modern, single‑page web app.
 
-> **Heads‑up:** This project is designed to run **inside JMRI**. The Java code is compiled as a JAR and dropped into JMRI’s `lib/` so its servlets and web assets are served by the built‑in JMRI Web Server.
+> **Note:** This project was written and tested on OS X 15.6 and JMRI 5.12. There is no evidence of it working on other operating systems or versions of JMRI. The project is designed to run **inside JMRI**. The Java code is compiled as a JAR and dropped into JMRI’s `lib/` so its servlets and web assets are served by the built‑in JMRI Web Server.
 
 ---
 
