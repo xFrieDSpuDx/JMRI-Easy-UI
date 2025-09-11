@@ -289,7 +289,7 @@ java -Deasy.web.root="/home/pi/JMRI/jmri-easy-ui/web/dist" -jar JMRI.jar
 | Turnouts Add Multiple | <img src="docs/images/9.Turnouts_Add_Multiple.png" width="700" alt="Turnouts Add Multiple" /> |
 | Turnouts Edit | <img src="docs/images/10.Turnouts_Edit.png" width="700" alt="Turnouts Edit" /> |
 | Drawer Panel | <img src="docs/images/11.Drawer_Panel.png" width="700" alt="Drawer Panel" /> |
-| Roster Mobile | <img src="docs/images/12.Roster_Mobile.png" width="400" alt="Roster Mobile" /" width="700" alt="Roster" /> |
+| Roster Mobile | <img src="docs/images/12.Roster_Mobile.png" width="400" alt="Roster Mobile" /> |
 | Turnouts Mobile | <img src="docs/images/13.Turnouts_Mobile.png" width="400" alt="Turnouts Mobile" /> |
 | Drawer Mobile | <img src="docs/images/14.Drawer_Mobile.png" width="400" alt="Drawer Mobile" /> |
 
