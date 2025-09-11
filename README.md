@@ -1,5 +1,3 @@
-# JMRI-Easy-UI
-A user friendly interface for JMRI
 # JMRI Easy UI
 
 A lightweight web UI and REST API for [JMRI](https://www.jmri.org/) that makes it simple to browse and edit your roster, manage function labels, view/upload locomotive images, switch between layout connections and simple layout control like turnouts — all from a modern, single‑page web app.
@@ -278,24 +276,22 @@ java -Deasy.web.root="/home/pi/JMRI/jmri-easy-ui/web/dist" -jar JMRI.jar
 
 ## Screenshots
 
-Add your images under `docs/images/` and update these links.
-
-|Roster| ![Roster](docs/images/1.Roster.png)|
-|Roster Add| ![Roster Add](docs/images/2.Roster_Add_Options.png)|
-|Roster Add from Copy| ![Roster Add from Copy](docs/images/3.Roster_Add_From_Copy.png)|
-|Roster Edit 1/2| ![Roster Edit 1/2](docs/images/4.Roster_Edit_1.png)|
-|Roster Edit 2/2| ![Roster Edit 2/2](docs/images/5.Roster_Edit_2.png)|
-|Roster Functions Editor| ![Roster Functions Editor](docs/images/6.Roster_Edit_Functions.png)|
-|Turnouts| ![Turnouts](docs/images/7.Turnouts.png)|
-|Turnouts Add| ![Turnouts Add](docs/images/8.Turnouts_Add_Options.png)|
-|Turnouts Add Multiple| ![Turnouts Add Multiple](docs/images/9.Turnouts_Add_Multiple.png)|
-|Turnouts Edit| ![Turnouts Edit](docs/images/10.Turnouts_Edit.png)|
-|Drawer Panel| ![Drawer Panel](docs/images/11.Drawer_Panel.png)|
-|Roster Mobile| ![Roster Mobile](docs/images/12.Roster_Mobile.png)|
-|Turnouts Mobile| ![Turnouts Mobile](docs/images/13.Turnouts_Mobile.png)|
-|Drawer Mobile| ![Drawer Mobile](docs/images/14.Drawer_Mobile.png)|
-
----
+| Screen | Preview |
+|---|---|
+| Roster | ![Roster](docs/images/1.Roster.png) |
+| Roster Add | ![Roster Add](docs/images/2.Roster_Add_Options.png) |
+| Roster Add from Copy | ![Roster Add from Copy](docs/images/3.Roster_Add_From_Copy.png) |
+| Roster Edit 1/2 | ![Roster Edit 1/2](docs/images/4.Roster_Edit_1.png) |
+| Roster Edit 2/2 | ![Roster Edit 2/2](docs/images/5.Roster_Edit_2.png) |
+| Roster Functions Editor | ![Roster Functions Editor](docs/images/6.Roster_Edit_Functions.png) |
+| Turnouts | ![Turnouts](docs/images/7.Turnouts.png) |
+| Turnouts Add | ![Turnouts Add](docs/images/8.Turnouts_Add_Options.png) |
+| Turnouts Add Multiple | ![Turnouts Add Multiple](docs/images/9.Turnouts_Add_Multiple.png) |
+| Turnouts Edit | ![Turnouts Edit](docs/images/10.Turnouts_Edit.png) |
+| Drawer Panel | ![Drawer Panel](docs/images/11.Drawer_Panel.png) |
+| Roster Mobile | ![Roster Mobile](docs/images/12.Roster_Mobile.png) |
+| Turnouts Mobile | ![Turnouts Mobile](docs/images/13.Turnouts_Mobile.png) |
+| Drawer Mobile | ![Drawer Mobile](docs/images/14.Drawer_Mobile.png) |
 
 ## License
 
