@@ -16,7 +16,7 @@ export const ROSTER_SELECTORS = Object.freeze({
 /**
  * Query and return the key elements for the Roster panel.
  *
- * @param {Document|HTMLElement} [root=document] - Root to query within.
+ * @param {ParentNode} [root=document] - Root to query within.
  * @returns {{
  *   panelElement: HTMLElement|null,
  *   listElement: HTMLElement|null,

@@ -2,7 +2,8 @@
 // Reusable DCC address validation + UI helpers
 
 /* ===================== Public API ===================== */
-/** Shared, canonical DCC address rules */
+
+/** Shared, canonical DCC address rules. */
 export const DCC_RULES_REQUIRED = Object.freeze({
   required: true,
   digitsOnly: true,
@@ -11,6 +12,7 @@ export const DCC_RULES_REQUIRED = Object.freeze({
   max: 9999,
 });
 
+/** Optional DCC address rules (empty allowed). */
 export const DCC_RULES_OPTIONAL = Object.freeze({
   required: false,
   digitsOnly: true,
@@ -21,23 +23,18 @@ export const DCC_RULES_OPTIONAL = Object.freeze({
 
 /**
  * Validate a DCC address string against simple rules.
- * @param {string} raw - user input (any string)
+ *
+ * @param {string} raw - User input (any string).
  * @param {object} rules
- * @param {boolean} [rules.required=true]  - whether a value is mandatory
- * @param {boolean} [rules.digitsOnly=true]- restrict to 0–9
- * @param {number}  [rules.maxDigits=4]    - max number of digits
- * @param {number}  [rules.min=1]          - min numeric value (if present)
- * @param {number}  [rules.max=9999]       - max numeric value (if present)
- * @returns {string|null} error message or null if valid
+ * @param {boolean} [rules.required=true]   - Whether a value is mandatory.
+ * @param {boolean} [rules.digitsOnly=true] - Restrict to 0–9.
+ * @param {number}  [rules.maxDigits=4]     - Max number of digits.
+ * @param {number}  [rules.min=1]           - Min numeric value (if present).
+ * @param {number}  [rules.max=9999]        - Max numeric value (if present).
+ * @returns {string|null} Error message, or null if valid.
  */
 export function getDccAddressError(raw, rules = {}) {
-  const {
-    required = true,
-    digitsOnly = true,
-    maxDigits = 4,
-    min = 1,
-    max = 9999,
-  } = rules;
+  const { required = true, digitsOnly = true, maxDigits = 4, min = 1, max = 9999 } = rules;
 
   const value = String(raw ?? "").trim();
 
@@ -49,41 +46,49 @@ export function getDccAddressError(raw, rules = {}) {
 
   const num = Number(value);
   if (Number.isNaN(num)) return "DCC Address must be numeric";
-  if (num < min || num > max)
-    return `DCC Address must be between ${min} and ${max}`;
+  if (num < min || num > max) return `DCC Address must be between ${min} and ${max}`;
 
   return null;
 }
 
 /**
  * Ensure an inline error element exists *after* the input (returns it).
+ *
  * @param {HTMLInputElement} input
  * @param {string} errorId
  * @param {string} [className="fn-error"]
  * @returns {HTMLElement}
  */
 export function ensureInlineErrorAfter(input, errorId, className = "fn-error") {
-  let el = document.getElementById(errorId);
-  if (!el) {
-    el = document.createElement("div");
-    el.id = errorId;
-    el.className = className;
-    el.setAttribute("role", "alert");
-    el.setAttribute("aria-live", "polite");
-    input.insertAdjacentElement("afterend", el);
+  let element = document.getElementById(errorId);
+  if (!element) {
+    element = document.createElement("div");
+    element.id = errorId;
+    element.className = className;
+    element.setAttribute("role", "alert");
+    element.setAttribute("aria-live", "polite");
+    input.insertAdjacentElement("afterend", element);
   }
-  return el;
+  return element;
 }
 
-/** Boolean convenience */
+/**
+ * Boolean convenience.
+ *
+ * @param {string} value
+ * @param {object} [rules=DCC_RULES_REQUIRED]
+ * @returns {boolean}
+ */
 export function isDccAddressValid(value, rules = DCC_RULES_REQUIRED) {
-  return getDccAddressError(value, rules) == null;
+  return getDccAddressError(value, rules) === null;
 }
 
 /**
  * Apply useful numeric attributes to an input (UX polish).
+ *
  * @param {HTMLInputElement} input
  * @param {number} [maxDigits=4]
+ * @returns {void}
  */
 export function applyNumericInputAttributes(input, maxDigits = 4) {
   if (!input) return;
@@ -95,6 +100,7 @@ export function applyNumericInputAttributes(input, maxDigits = 4) {
 
 /**
  * Render validation state to UI (aria-invalid, inline message, disable save).
+ *
  * @param {object} opts
  * @param {HTMLInputElement} opts.input
  * @param {HTMLElement}      [opts.errorEl]
@@ -102,7 +108,7 @@ export function applyNumericInputAttributes(input, maxDigits = 4) {
  * @param {HTMLButtonElement}[opts.writeDccButton]
  * @param {object}           [opts.rules]
  * @param {boolean}          [opts.disableSaveWhenInvalid=true]
- * @returns {boolean} true if valid, false otherwise
+ * @returns {boolean} True if valid, false otherwise.
  */
 export function renderDccValidation({
   input,
@@ -128,13 +134,15 @@ export function renderDccValidation({
 
 /**
  * Attach live validation to an input (and run once immediately).
+ *
  * @param {object} opts
  * @param {HTMLInputElement}  opts.input
  * @param {HTMLButtonElement} [opts.saveButton]
+ * @param {HTMLButtonElement} [opts.writeDccButton]
  * @param {object}            [opts.rules]
  * @param {string}            [opts.errorId="dccAddressError"]
  * @param {boolean}           [opts.disableSaveWhenInvalid=true]
- * @returns {() => void} detach function
+ * @returns {() => void} Detach function.
  */
 export function setupLiveDccValidation({
   input,

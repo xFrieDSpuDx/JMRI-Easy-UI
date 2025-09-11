@@ -8,6 +8,13 @@
  * - Hidden and standard inputs included
  * - Skips elements with [data-dirty-ignore]
  * - By default ignores disabled fields; pass includeDisabled:true to include them
+ *
+ * @param {HTMLFormElement} form - The form element to snapshot.
+ * @param {{ trim?: boolean, includeDisabled?: boolean, includeFiles?: boolean }} [options]
+ *   - trim: Trim string values (default true)
+ *   - includeDisabled: Include disabled fields (default false)
+ *   - includeFiles: Include file inputs (as file names) (default false)
+ * @returns {Record<string, unknown>} A plain object of field values keyed by name/id.
  */
 export function snapshotForm(
   form,
@@ -16,10 +23,10 @@ export function snapshotForm(
   const snapshot = {};
   if (!form) return snapshot;
 
-  /** Prefer a stable key: name → id → auto */
-  const keyFor = (el, index) => {
-    if (el.name) return el.name;
-    if (el.id) return `#${el.id}`;
+  /* Prefer a stable key: name → id → auto */
+  const keyFor = (element, index) => {
+    if (element.name) return element.name;
+    if (element.id) return `#${element.id}`;
     return `__field_${index}`;
   };
 
@@ -27,46 +34,48 @@ export function snapshotForm(
   const seenRadioGroups = new Set();
 
   const elements = Array.from(form.elements || []);
-  elements.forEach((el, index) => {
-    if (!el || el.matches?.("[data-dirty-ignore]")) return;
-    if (!includeDisabled && el.disabled) return;
+  elements.forEach((element, index) => {
+    if (!element || element.matches?.("[data-dirty-ignore]")) return;
+    if (!includeDisabled && element.disabled) return;
 
-    const type = (el.type || "").toLowerCase();
-    const tag = (el.tagName || "").toLowerCase();
-    const key = keyFor(el, index);
+    const type = (element.type || "").toLowerCase();
+    const tag = (element.tagName || "").toLowerCase();
+    const key = keyFor(element, index);
 
     if (type === "radio") {
-      if (!el.name) return; // ignore nameless radios
-      if (seenRadioGroups.has(el.name)) return;
-      seenRadioGroups.add(el.name);
+      if (!element.name) return; // ignore nameless radios
+      if (seenRadioGroups.has(element.name)) return;
+      seenRadioGroups.add(element.name);
 
       const checked = form.querySelector(
-        `input[type="radio"][name="${CSS.escape(el.name)}"]:checked`
+        `input[type="radio"][name="${CSS.escape(element.name)}"]:checked`
       );
-      snapshot[el.name] = checked ? checked.value : "";
+      snapshot[element.name] = checked ? checked.value : "";
       return;
     }
 
     if (type === "checkbox") {
-      snapshot[key] = !!el.checked;
+      snapshot[key] = !!element.checked;
       return;
     }
 
-    if (tag === "select" && el.multiple) {
-      const selected = Array.from(el.selectedOptions || []).map((o) => o.value);
-      snapshot[key] = selected;
+    if (tag === "select" && element.multiple) {
+      const selectedValues = Array.from(element.selectedOptions || []).map(
+        (optionElement) => optionElement.value
+      );
+      snapshot[key] = selectedValues;
       return;
     }
 
     if (type === "file") {
       if (!includeFiles) return; // usually excluded from dirty compare
-      const files = Array.from(el.files || []).map((f) => f.name);
-      snapshot[key] = files;
+      const fileNames = Array.from(element.files || []).map((fileItem) => fileItem.name);
+      snapshot[key] = fileNames;
       return;
     }
 
     // Default: string value
-    let value = el.value ?? "";
+    let value = element.value ?? "";
     if (trim && typeof value === "string") value = value.trim();
     snapshot[key] = value;
   });
@@ -76,15 +85,22 @@ export function snapshotForm(
 
 /**
  * Track whether a form is "dirty" (different from its baseline snapshot).
- * Calls onDirtyChange(dirty:boolean) on any change.
+ * Calls onDirtyChange(dirty:boolean) whenever the dirty state changes.
  *
- * Returns { isDirty, refresh, resetBaseline, detach, getSnapshot }.
+ * @param {{ form: HTMLFormElement, onDirtyChange?: (dirty: boolean) => void }} params
+ * @returns {{
+ *   isDirty: () => boolean,
+ *   refresh: () => boolean,
+ *   resetBaseline: () => void,
+ *   detach: () => void,
+ *   getSnapshot: () => Record<string, unknown>
+ * }}
  */
 export function trackFormDirty({ form, onDirtyChange } = {}) {
   if (!form) {
     return {
       isDirty: () => false,
-      refresh: () => {},
+      refresh: () => false,
       resetBaseline: () => {},
       detach: () => {},
       getSnapshot: () => ({}),
@@ -126,7 +142,13 @@ export function trackFormDirty({ form, onDirtyChange } = {}) {
   };
 }
 
-// Makes sure the file name is safe to save
+/**
+ * Convert an arbitrary string into a safe file base (no extension),
+ * preserving letters, numbers, underscores, hyphens, and dots.
+ *
+ * @param {string} id - Source identifier to sanitize.
+ * @returns {string} A safe, non-empty filename base (e.g., "unnamed" if empty).
+ */
 export function toSafeFileBase(id) {
   return (
     String(id)

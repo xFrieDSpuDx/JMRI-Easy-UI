@@ -1,41 +1,76 @@
+// js/services/cachedValues.js
+
 import {
   getCurrentPanelsFile,
-  _panelsFileCache,
+  _panelsFileCache as panelsFileCache,
   updatePanelsFileCache,
   storeUserConfig,
   getActiveConnection,
 } from "./jmri.js";
 
-export let activeConnection;
+/** Default filename used when we cannot read the current panels file. */
+const defaultPanelsFilename = "AutoStorePanels.xml";
 
+/** Timeout handle for deferred panel-store writes. */
+let scheduledStoreTimeoutId = 0;
+
+/** The currently active JMRI connection (cached for consumers). */
+export let activeConnection = null;
+
+/**
+ * Populate commonly cached values used across the app.
+ * - Schedules a deferred store of user config to the current panels file
+ * - Retrieves and caches the active connection
+ *
+ * @returns {Promise<void>}
+ */
 export async function populateCachedValues() {
-  await scheduleStoreToCurrentFile();
-  await getInitialActiveConnections();
+  await schedulePanelsFileStore();
+  await fetchAndPopulateActiveConnection();
 }
 
-async function scheduleStoreToCurrentFile(delay = 800) {
-  if (!_panelsFileCache) {
-    let panelsFileCacheValue = "";
+/**
+ * Ensure the panels file cache is initialized, then schedule a deferred write
+ * of user config to that file. Subsequent calls reset the timer.
+ *
+ * @param {number} [delay=800] - Delay in milliseconds before writing.
+ * @returns {Promise<void>}
+ */
+async function schedulePanelsFileStore(delay = 800) {
+  if (!panelsFileCache) {
+    let panelsFileName = "";
     try {
       const info = await getCurrentPanelsFile();
-      panelsFileCacheValue = info?.fileName || "AutoStorePanels.xml";
+      panelsFileName = info?.fileName || defaultPanelsFilename;
     } catch {
-      panelsFileCacheValue = "AutoStorePanels.xml";
+      panelsFileName = defaultPanelsFilename;
     }
-
-    updatePanelsFileCache(panelsFileCacheValue);
+    updatePanelsFileCache(panelsFileName);
   }
-  clearTimeout(scheduleStoreToCurrentFile._t);
-  scheduleStoreToCurrentFile._t = setTimeout(() => {
-    storeUserConfig(_panelsFileCache).catch(() => {});
+
+  clearTimeout(scheduledStoreTimeoutId);
+  scheduledStoreTimeoutId = setTimeout(() => {
+    // Fire-and-forget; keep UI responsive even if this fails.
+    storeUserConfig(panelsFileCache).catch(() => {});
   }, delay);
 }
 
-async function getInitialActiveConnections() {
-  const activeConnectionObject = await getActiveConnection();
-  populateActiveConnection(activeConnectionObject);
+/**
+ * Fetch active connections from JMRI and cache the single active one.
+ *
+ * @returns {Promise<void>}
+ */
+async function fetchAndPopulateActiveConnection() {
+  const activeConnectionList = await getActiveConnection();
+  populateActiveConnection(activeConnectionList);
 }
 
-export function populateActiveConnection(activeConnectionObject) {
-  activeConnection = activeConnectionObject.find(connection => connection.active) ?? null;
+/**
+ * Derive and cache the active connection from a list of connections.
+ *
+ * @param {Array<{active?: boolean}>} activeConnectionList - Connections returned by JMRI.
+ * @returns {void}
+ */
+export function populateActiveConnection(activeConnectionList) {
+  activeConnection = activeConnectionList.find((connection) => connection.active) ?? null;
 }

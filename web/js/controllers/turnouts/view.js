@@ -38,17 +38,15 @@ function svgTurnoutIcon({ isThrown = false, isUnknown = false }) {
 /**
  * Create a roster-style card for a single turnout.
  *
- * @param {object} record - normalised turnout data.
+ * @param {object} record - Normalised turnout data.
  * @param {string} [record.title] - Preferred display title (usually userName).
  * @param {string} [record.address] - The turnout's address/name.
  * @param {string} [record.normalisedState] - "Closed" | "Thrown" | "Unknown".
  * @param {string} [record.comment] - Optional comment/note.
  * @param {boolean} [record.isThrown] - True if THROWN.
+ * @param {boolean} [record.isUnknown] - True if state is unknown.
  *
- * @param {object} [handlers]
- * @param {(record: object) => void} [handlers.onEdit] - Called when Edit is clicked.
- * @param {(record: object) => void} [handlers.onDelete] - Called when Delete is clicked.
- *
+ * @param {{ onEdit?: (record: object) => void, onDelete?: (record: object) => void, onToggle?: (record: object) => void }} [handlers={}]
  * @returns {HTMLElement} A fully populated <article class="card"> element.
  */
 export function createTurnoutCard(record, handlers = {}) {
@@ -70,23 +68,17 @@ export function createTurnoutCard(record, handlers = {}) {
     <div class="card-body card-body-turnout">
       <div class="card-title">${escapeHtml(titleText)}</div>
       <div class="card-sub">${escapeHtml(subtitleText)}</div>
-      ${
-        record.comment
-          ? `<div class="card-sub">${escapeHtml(record.comment)}</div>`
-          : ""
-      }
+      ${record.comment ? `<div class="card-sub">${escapeHtml(record.comment)}</div>` : ""}
     </div>
   `;
 
-  cardElement
-    .querySelector('[data-act="toggle"]')
-    ?.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      handlers.onToggle?.(record);
-    });
+  cardElement.querySelector('[data-act="toggle"]')?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handlers.onToggle?.(record);
+  });
 
-  cardElement.addEventListener("click", (ev) => {
-    ev.stopPropagation();
+  cardElement.addEventListener("click", (event) => {
+    event.stopPropagation();
     handlers.onEdit?.(record);
   });
 

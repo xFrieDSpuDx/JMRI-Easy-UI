@@ -1,8 +1,7 @@
-dev.yourname.jmri.easy.HealthServlet
-dev.yourname.jmri.easy.RosterApiServlet
-dev.yourname.jmri.easy.ReadFromTrackServlet
-dev.yourname.jmri.easy.ProgrammerApiServlet
-dev.yourname.jmri.easy.SystemPrefixApiServlet
-dev.yourname.jmri.easy.StoreApiServlet
-dev.yourname.jmri.easy.DecoderIdentifyServlet
-dev.yourname.jmri.easy.ConnectionsApiServlet
+easy.ConnectionsApiServlet
+easy.HealthServlet
+easy.ProgrammerApiServlet
+easy.ReadFromTrackServlet
+easy.RosterApiServlet
+easy.StoreApiServlet
+easy.SystemPrefixApiServlet

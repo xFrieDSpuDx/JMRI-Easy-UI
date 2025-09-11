@@ -2,21 +2,8 @@
 // Fetch & normalize roster entries for the Roster panel + create/update/delete.
 
 /* --------------------------------- Imports -------------------------------- */
-import {
-  LOCO_DIALOG_SELECTORS,
-  closeDialog,
-} from "./dialog.js";
-import {
-  getInfoTabSnapshot,
-  getPickedImageFile,
-  decideImagePersistence,
-  getExistingImageSrc,
-} from "./dialog/infoTab.js";
-import { getChosenDecoderFromSelect } from "./dialog/decoderSelect.js";
-import { saveFunctionsTab } from "./dialog/functionsTab.js";
-import { busyWhile } from "../../ui/busy.js";
-import { showToast } from "../../ui/toast.js";
-import { query, setInputValue, getInputValue } from "../../ui/dom.js";
+
+// Parent-level modules
 import {
   getRoster,
   saveRosterEntry,
@@ -26,35 +13,53 @@ import {
   uploadRosterXml,
   saveRosterDecoder,
 } from "../../services/jmri.js";
-import {
-  DCC_RULES_REQUIRED,
-  getDccAddressError,
-} from "../../validation/dcc.js";
+import { DCC_RULES_REQUIRED, getDccAddressError } from "../../validation/dcc.js";
 import { toSafeFileBase } from "../../validation/form.js";
+import { busyWhile } from "../../ui/busy.js";
+import { showToast } from "../../ui/toast.js";
+import { query, setInputValue, getInputValue } from "../../ui/dom.js";
+// Sibling modules
+import { LOCO_DIALOG_SELECTORS, closeDialog } from "./dialog.js";
+import {
+  getInfoTabSnapshot,
+  getPickedImageFile,
+  decideImagePersistence,
+  getExistingImageSrc,
+} from "./dialog/infoTab.js";
+import { getChosenDecoderFromSelect } from "./dialog/decoderSelect.js";
+import { saveFunctionsTab } from "./dialog/functionsTab.js";
 import { refreshRoster } from "./index.js";
 
-let xmlPickerEl = null;
+/* --------------------------------- State ---------------------------------- */
+
+let xmlPickerInputElement = null;
 
 /* ----------------------------- Data Fetching ------------------------------ */
 /**
- * Load roster from your servlet:
- *   GET /api/roster → [{ id, fileName, address, road, number, owner, model }]
+ * Load roster from the servlet.
+ * GET /api/roster → [{ id, fileName, address, road, number, owner, model }]
+ *
+ * @returns {Promise<Array<ReturnType<typeof toRosterRecord>>>} Normalized roster records.
  */
 export async function fetchRoster() {
   const rawRoster = await getRoster({ fresh: true });
   // const rawRoster = await getJSON("/api/roster");
-  return Array.isArray(rawRoster)
-    ? rawRoster.map(toRosterRecord).filter(Boolean)
-    : [];
+  return Array.isArray(rawRoster) ? rawRoster.map(toRosterRecord).filter(Boolean) : [];
 }
 
 /* ---------------------------- Normalization -------------------------------- */
 /**
- * Map raw roster entry → UI-friendly record (keeps original in `data`).
+ * Map a raw roster entry into a UI-friendly record (keeps original in `data`).
  * - title: id
  * - address: DCC address (string)
  * - lines: road/number/model/owner (for subs)
  * - imageUrl: /api/roster/icon?id=<id>
+ *
+ * @param {object} entry - Raw roster entry from the backend.
+ * @returns {null|{
+ *   title:string, address:string, road:string, number:string, model:string, owner:string,
+ *   imageUrl:string, id:string, file:string, data:object
+ * }} Normalized record or null on invalid input.
  */
 export function toRosterRecord(entry) {
   if (!entry || typeof entry !== "object") return null;
@@ -67,7 +72,7 @@ export function toRosterRecord(entry) {
   const model = toSafeString(entry.model);
   const owner = toSafeString(entry.owner);
 
-  // Simple icon URL; your server already handles placeholder/SVG fallback.
+  // Simple icon URL; server handles placeholder/SVG fallback.
   const imageUrl = id ? `/api/roster/icon?id=${encodeURIComponent(id)}` : "";
 
   return {
@@ -89,13 +94,24 @@ export function toRosterRecord(entry) {
   };
 }
 
+/**
+ * Convert a possibly-null value to a safe string.
+ * Note: preserves "undefined" for undefined values (keeps prior behavior).
+ *
+ * @param {unknown} value - Any value.
+ * @returns {string} Safe string.
+ */
 function toSafeString(value) {
-  return value == null ? "" : String(value);
+  return value === null ? "" : String(value);
 }
 
 /* ------------------------------ Save / Delete ------------------------------ */
 /**
- * Save handler: validates, persists roster entry, resolves file name, uploads image.
+ * Save handler: validates, persists roster entry, resolves file name, uploads image,
+ * saves decoder and functions, then closes the dialog.
+ *
+ * @param {() => void} [onSaved] - Optional callback invoked after a successful save.
+ * @returns {Promise<void>} Resolves when the save flow completes.
  */
 export async function handleSave(onSaved) {
   const formValues = getInfoTabSnapshot();
@@ -105,10 +121,7 @@ export async function handleSave(onSaved) {
     return;
   }
 
-  const dccAddressError = getDccAddressError(
-    formValues.address,
-    DCC_RULES_REQUIRED
-  );
+  const dccAddressError = getDccAddressError(formValues.address, DCC_RULES_REQUIRED);
   if (dccAddressError) {
     showToast?.(dccAddressError);
     return;
@@ -116,10 +129,10 @@ export async function handleSave(onSaved) {
 
   try {
     await busyWhile(async () => {
-      // Maintain the same variable lifecycle; we just use clearer names.
+      // Maintain the same variable lifecycle; clearer names only.
       let resolvedFileName = formValues.file;
 
-      // Decide image persistence (kept identical in behavior)
+      // Decide image persistence (behavior unchanged)
       const { fileToUpload, imageField } = await decideImagePersistence({
         pickedFile: getPickedImageFile(),
         existingSrc: getExistingImageSrc(),
@@ -127,8 +140,7 @@ export async function handleSave(onSaved) {
       });
 
       // Build initial filename (unchanged logic)
-      const proposedFileName =
-        formValues.file || `${toSafeFileBase(formValues.id)}.xml`;
+      const proposedFileName = formValues.file || `${toSafeFileBase(formValues.id)}.xml`;
 
       // Build payload exactly as before, optionally including image field
       const savePayload = {
@@ -152,9 +164,8 @@ export async function handleSave(onSaved) {
       }
 
       // 4) Save loco decoder
-      const decoderSelect = query(LOCO_DIALOG_SELECTORS.decoderSelect)
+      const decoderSelect = query(LOCO_DIALOG_SELECTORS.decoderSelect);
       const chosenDecoder = getChosenDecoderFromSelect(decoderSelect);
-
       if (chosenDecoder) {
         await saveRosterDecoder(savePayload.id, chosenDecoder);
       }
@@ -166,13 +177,16 @@ export async function handleSave(onSaved) {
     closeDialog();
     showToast("Saved");
     onSaved?.();
-  } catch (err) {
-    showToast(err?.message || "Save failed");
+  } catch (error) {
+    showToast(error?.message || "Save failed");
   }
 }
 
 /**
  * Delete handler: deletes by file name, then closes dialog and toasts.
+ *
+ * @param {() => void} [onSaved] - Optional callback invoked after deletion.
+ * @returns {Promise<void>} Resolves when deletion completes.
  */
 export async function handleDelete(onSaved) {
   const fileNameToDelete = getInputValue(LOCO_DIALOG_SELECTORS.file);
@@ -190,15 +204,19 @@ export async function handleDelete(onSaved) {
     closeDialog();
     showToast("Deleted");
     onSaved?.();
-  } catch (err) {
-    showToast(err?.message || "Delete failed");
+  } catch (error) {
+    showToast(error?.message || "Delete failed");
   }
 }
 
 /* ------------------------------ Upload XML ------------------------------ */
-
+/**
+ * Ensure a hidden `<input type="file">` exists for XML uploads.
+ *
+ * @returns {HTMLInputElement} The (possibly newly created) file input element.
+ */
 function ensureXmlPicker() {
-  if (xmlPickerEl) return xmlPickerEl;
+  if (xmlPickerInputElement) return xmlPickerInputElement;
 
   const input = document.createElement("input");
   input.type = "file";
@@ -224,25 +242,30 @@ function ensureXmlPicker() {
     // --- build a safe filename (sanitize base, keep .xml) ---
     const originalName = xmlFile.name || "unnamed.xml";
     const base = originalName.replace(/\.[^.]+$/g, ""); // strip extension
-    const safeBase = toSafeFileBase(base); // your helper
+    const safeBase = toSafeFileBase(base);
     const safeName = `${safeBase}.xml`;
 
     try {
       await busyWhile(async () => {
         await uploadRosterXml(xmlFile, safeName);
         showToast("XML uploaded");
-        const records = await fetchRoster();
+        await fetchRoster();
         refreshRoster();
       }, "Uploading XML…");
-    } catch (err) {
-      showToast(err?.message || "Upload failed");
+    } catch (error) {
+      showToast(error?.message || "Upload failed");
     }
   });
 
-  xmlPickerEl = input;
-  return xmlPickerEl;
+  xmlPickerInputElement = input;
+  return xmlPickerInputElement;
 }
 
+/**
+ * Start the XML upload flow by opening the file picker.
+ *
+ * @returns {void}
+ */
 export function startXmlUploadFlow() {
   const picker = ensureXmlPicker();
   picker.click();

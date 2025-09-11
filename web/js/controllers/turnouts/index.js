@@ -5,41 +5,50 @@
 // - Renders turnouts using the shared roster-style card grid
 // - Wires Add / Edit / Delete actions (lightweight prompt flows for now)
 
+/* --------------------------------- Imports -------------------------------- */
+
+// Parent imports
 import { getTurnouts } from "../../services/jmri.js";
-import {
-  updateTurnout,
-  deleteTurnout,
-  normaliseTurnouts,
-} from "./data.js";
-import {
-  TURNOUTS_SELECTORS as SEL,
-  queryTurnoutsElements,
-} from "./selectors.js";
 import { busyWhile } from "../../ui/busy.js";
-import { createTurnoutCard } from "./view.js";
-import { openTurnoutDialog, initTurnoutDialog, closeDialog } from "./dialog.js";
 import { showToast } from "../../ui/toast.js";
 import { query } from "../../ui/dom.js";
+// Sibling imports
+import { updateTurnout, deleteTurnout, normaliseTurnouts } from "./data.js";
+import { TURNOUTS_SELECTORS as turnoutsSelectors, queryTurnoutsElements } from "./selectors.js";
+import { createTurnoutCard } from "./view.js";
+import { openTurnoutDialog, initTurnoutDialog, closeDialog } from "./dialog.js";
 
-/** Constants */
-const PANEL_NAME = "turnouts";
-const MSG_LOADING = "Loading turnouts…";
-const MSG_DELETING = "Deleting…";
+/* --------------------------------- State ---------------------------------- */
 
-/** Module-scoped state for this controller */
+/** Panel identity used by the shell’s panel switch events. */
+const panelName = "turnouts";
+
+/** User-facing busy messages. */
+const loadingMessage = "Loading turnouts…";
+const deletingMessage = "Deleting…";
+
+/** Module-scoped state for this controller. */
 const controllerState = {
   initialized: false,
   items: [],
 };
 
-/** Safe toast helper (uses your global showToast if present) */
+/* --------------------------------- Utils ---------------------------------- */
+/**
+ * Safe toast helper.
+ *
+ * @param {string} message - Message to display.
+ * @returns {void}
+ */
 function toast(message) {
   try {
-    // eslint-disable-next-line no-undef
     showToast?.(message);
-  } catch {}
+  } catch (error) {
+    console.warn(error);
+  }
 }
 
+/* =============================== Data layer =============================== */
 /**
  * Fetch the latest turnouts from the data layer and cache them.
  *
@@ -53,13 +62,15 @@ async function fetchTurnoutsData() {
   return normalisedList;
 }
 
+/* ================================ Rendering =============================== */
 /**
  * Render a list of turnout records into the panel list container.
  *
- * @param {Array} list - normalised turnout records.
+ * @param {Array} list - Normalised turnout records.
+ * @returns {void}
  */
 function renderTurnoutList(list) {
-  const containerElement = query(SEL.list);
+  const containerElement = query(turnoutsSelectors.list);
   if (!containerElement) return;
 
   containerElement.innerHTML = "";
@@ -73,7 +84,7 @@ function renderTurnoutList(list) {
     containerElement.appendChild(cardElement);
   });
 
-  // Optional: simple empty state if no items
+  // Simple empty state if no items
   if (!list || list.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty";
@@ -85,9 +96,12 @@ function renderTurnoutList(list) {
   }
 }
 
+/* ============================== Public API =============================== */
 /**
  * Render the Turnouts panel the first time it becomes visible.
  * Subsequent calls are no-ops unless you explicitly reset the controller state.
+ *
+ * @returns {Promise<void>} Resolves after initial render.
  */
 export async function renderTurnoutsOnce() {
   if (controllerState.initialized) return;
@@ -100,64 +114,90 @@ export async function renderTurnoutsOnce() {
     await busyWhile(async () => {
       const list = await fetchTurnoutsData();
       renderTurnoutList(list);
-    }, MSG_LOADING);
+    }, loadingMessage);
   } catch {
     // Intentionally silent: keep the empty state if loading fails.
   }
 }
 
+/* ================================ Wiring ================================= */
 /**
  * Handle panel switch events; lazily initializes this panel on first show.
  *
- * @param {CustomEvent} event - panel:changed event with detail: { name: string }
+ * @param {CustomEvent<{name:string}>} event - panel:changed event with detail.name.
+ * @returns {void}
  */
 function handlePanelChanged(event) {
-  if (event?.detail?.name === PANEL_NAME) {
+  if (event?.detail?.name === panelName) {
     renderTurnoutsOnce();
   }
 }
 
+/**
+ * Refresh the list by re-fetching and re-rendering.
+ *
+ * @returns {Promise<void>} Resolves when refreshed.
+ */
 function refreshList() {
   return busyWhile(async () => {
     const list = await fetchTurnoutsData();
     renderTurnoutList(list);
-  }, "Loading turnouts…");
+  }, loadingMessage);
 }
 
+/**
+ * Open the dialog to add a single turnout.
+ *
+ * @returns {void}
+ */
 function onAddTurnout() {
   openTurnoutDialog("create", null, () => {
     refreshList();
   });
 }
 
+/**
+ * Open the dialog to add multiple sequential turnouts.
+ *
+ * @returns {void}
+ */
 function onAddSequentialTurnout() {
   openTurnoutDialog("sequential", null, () => {
     refreshList();
   });
 }
 
+/**
+ * Open the dialog to edit a turnout.
+ *
+ * @param {object} record - The turnout record to edit.
+ * @returns {void}
+ */
 function onEditTurnout(record) {
   openTurnoutDialog("edit", record, () => {
     refreshList();
   });
 }
 
-/** Delete a turnout (confirm-based flow) */
+/**
+ * Delete a turnout (confirm-based flow).
+ *
+ * @param {object} record - The turnout record to delete.
+ * @returns {Promise<void>} Resolves after delete attempt completes.
+ */
 export async function onDeleteTurnout(record) {
   const systemName = record.name || record.address || record.data?.name;
   if (!systemName) return;
 
-  const ok = confirm(
-    `Delete turnout "${record.title || systemName}"?\nThis cannot be undone.`
-  );
+  const ok = confirm(`Delete turnout "${record.title || systemName}"?\nThis cannot be undone.`);
   if (!ok) return;
 
   try {
     await busyWhile(async () => {
-      const deleteResponse = await deleteTurnout(systemName);
+      await deleteTurnout(systemName);
       const list = await fetchTurnoutsData();
       renderTurnoutList(list);
-    }, MSG_DELETING);
+    }, deletingMessage);
     toast("Turnout deleted");
   } catch {
     toast("Delete failed");
@@ -171,6 +211,8 @@ export async function onDeleteTurnout(record) {
  * - Subscribes to panel changes
  * - Wires up Add button
  * - If the Turnouts panel is already visible (e.g., deep link), render immediately
+ *
+ * @returns {void}
  */
 export function initTurnouts() {
   document.addEventListener("panel:changed", handlePanelChanged);
@@ -183,11 +225,15 @@ export function initTurnouts() {
   }
 }
 
-/** Wire the “Add Turnout button and split menu */
+/**
+ * Wire the “Add Turnout” button and split menu.
+ *
+ * @returns {void}
+ */
 function initSplitMenu() {
   const { addButtonElement } = queryTurnoutsElements();
   const toggle = document.getElementById("addTurnoutMore");
-  const menu   = document.getElementById("addTurnoutMenu");
+  const menu = document.getElementById("addTurnoutMenu");
 
   if (!toggle || !menu || !addButtonElement) return;
 
@@ -232,11 +278,16 @@ function initSplitMenu() {
   });
 }
 
+/* ============================== Toggle action ============================== */
 /**
  * Compute the raw JMRI state value we need to send to achieve the desired
  * logical state, taking `inverted` into account.
  *  - Normal:   Closed=2, Thrown=4
  *  - Inverted: Closed=4, Thrown=2
+ *
+ * @param {boolean} targetThrown - Desired logical state.
+ * @param {boolean} inverted - Whether the turnout is inverted.
+ * @returns {number} The raw JMRI state value to send.
  */
 function computeRawState(targetThrown, inverted) {
   if (targetThrown) {
@@ -246,7 +297,12 @@ function computeRawState(targetThrown, inverted) {
   return inverted ? 4 : 2;
 }
 
-/** Toggle a single turnout between Closed and Thrown (Unknown → Thrown). */
+/**
+ * Toggle a single turnout between Closed and Thrown (Unknown → Thrown).
+ *
+ * @param {object} record - The turnout record.
+ * @returns {Promise<void>} Resolves after toggle attempt.
+ */
 async function onToggleTurnout(record) {
   const systemName = record.name || record.address || record.data?.name;
   if (!systemName) return;
@@ -260,17 +316,21 @@ async function onToggleTurnout(record) {
   const targetRaw = computeRawState(targetThrown, !!record.inverted);
 
   try {
-      await updateTurnout(systemName, { state: targetRaw });
-      // Refresh list after change
-      const list = await fetchTurnoutsData();
-      renderTurnoutList(list);
-    // Optional toast if you like:
+    await updateTurnout(systemName, { state: targetRaw });
+    // Refresh list after change
+    const list = await fetchTurnoutsData();
+    renderTurnoutList(list);
+    // Optional toast
     try {
       showToast?.(`Turnout ${targetThrown ? "Thrown" : "Closed"}`);
-    } catch {}
+    } catch (error) {
+      console.warn(error);
+    }
   } catch {
     try {
       showToast?.("Toggle failed");
-    } catch {}
+    } catch (error) {
+      console.warn(error);
+    }
   }
 }

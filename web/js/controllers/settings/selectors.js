@@ -1,13 +1,13 @@
 // js/controllers/settings/selectors.js
 // Centralized DOM selectors for the Settings panel.
 //
-// Usage patterns:
-//   import { SETTINGS_SEL } from "./selectors.js";
-//   const listEl = document.querySelector(SETTINGS_SEL.list);
+// Usage:
+//   import { SETTINGS_SELECTORS, querySettingsElements } from "./selectors.js";
+//   const { panelElement } = querySettingsElements();
 
 /** Readable selector map for Settings-related elements. */
 export const SETTINGS_SELECTORS = Object.freeze({
-  panel: "#panelTurnouts",
+  panel: "#panelSettings",
   connectionsSelect: "#jmriConnectionSelect",
 });
 
@@ -16,15 +16,15 @@ export const SETTINGS_SELECTORS = Object.freeze({
  *
  * @param {ParentNode} [root=document] - Optional root node to scope the queries.
  * @returns {{
- *   panelElement: Element|null,
- *   connectionsElement: Element|null,
+ *   panelElement: HTMLElement|null,
+ *   connectionsElement: HTMLSelectElement|null
  * }}
  */
 export function querySettingsElements(root = document) {
-  const query = (selector) => root.querySelector(selector);
+  const find = (selector) => /** @type {HTMLElement|null} */ (root.querySelector(selector));
 
   return {
-    panelElement: query(SETTINGS_SELECTORS.panel),
-    connectionsElement: query(SETTINGS_SELECTORS.connectionsSelect),
+    panelElement: find(SETTINGS_SELECTORS.panel),
+    connectionsElement: /** @type {HTMLSelectElement|null} */ (find(SETTINGS_SELECTORS.connectionsSelect)),
   };
 }

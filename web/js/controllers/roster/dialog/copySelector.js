@@ -1,19 +1,26 @@
+import { escapeHtml } from "../../../ui/dom.js";
+import { showToast } from "../../../ui/toast.js";
 import { fetchRoster } from "../data.js";
 import { openLocoDialog } from "../dialog.js";
-import { showToast } from "../../../ui/toast.js";
-import { escapeHtml } from "../../../ui/dom.js";
 import { refreshRoster } from "../index.js";
 
-/** Build a unique ID suggestion based on a base id and a set of existing ids. */
+/**
+ * Build a unique ID suggestion based on a base ID and a set of existing IDs.
+ * If the base already exists, appends/increments a numeric suffix.
+ *
+ * @param {string} locoId - The starting ID value to base the suggestion on.
+ * @param {Set<string>} existingIdSet - A set of existing IDs (case-insensitive).
+ * @returns {string} A unique ID suggestion, or an empty string if no base provided.
+ */
 function buildUniqueIdSuggestion(locoId, existingIdSet) {
   const base = String(locoId || "").trim();
   if (!base) return "";
-  const exists = (id) => existingIdSet.has(String(id).toLowerCase());
 
+  const exists = (id) => existingIdSet.has(String(id).toLowerCase());
   if (!exists(base)) return base;
 
   const matchedId = base.match(/^(.*?)(\d+)$/);
-  let stem = matchedId ? matchedId[1] : `${base}-`;
+  const stem = matchedId ? matchedId[1] : `${base}-`;
   let numberPostfix = matchedId ? parseInt(matchedId[2], 10) + 1 : 2;
   let candidate = `${stem}${numberPostfix}`;
 
@@ -21,27 +28,47 @@ function buildUniqueIdSuggestion(locoId, existingIdSet) {
     numberPostfix += 1;
     candidate = `${stem}${numberPostfix}`;
   }
+
   return candidate;
 }
 
-/** Return a Set of existing ids (lowercased) from normalized roster. */
-function toIdSet(records) {
+/**
+ * Create a Set of existing IDs (lowercased) from a normalized roster.
+ *
+ * @param {Array<object>} records - Roster records that may contain an `id` field.
+ * @returns {Set<string>} A set of lowercased IDs.
+ */
+function collectExistingIdSet(records) {
   const recordSet = new Set();
   for (const record of records || []) {
-    if (record?.id) recordSet.add(String(record.id).toLowerCase());
+    if (record?.id) {
+      recordSet.add(String(record.id).toLowerCase());
+    }
   }
   return recordSet;
 }
 
-function iconUrl(id) {
+/**
+ * Build the icon URL for a given roster entry ID.
+ *
+ * @param {string} id - The roster entry ID.
+ * @returns {string} A cache-busted icon URL.
+ */
+function buildIconUrl(id) {
   return `/api/roster/icon?id=${encodeURIComponent(id)}&v=${Date.now()}`;
 }
 
-/** Open the create dialog prefilled from a source record (except ID). */
+/**
+ * Open the "create" loco dialog prefilled with data from a source record (except ID).
+ *
+ * @param {object} source - The source roster record to copy from.
+ * @param {Array<object>} allRecords - All roster records (for unique ID suggestion).
+ * @returns {void}
+ */
 function openCopyFromRecord(source, allRecords) {
   if (!source) return;
 
-  const existingIds = toIdSet(allRecords);
+  const existingIds = collectExistingIdSet(allRecords);
   const suggestedId = buildUniqueIdSuggestion(source.id, existingIds);
 
   const prefill = {
@@ -60,16 +87,21 @@ function openCopyFromRecord(source, allRecords) {
 
 /* ---------- Popover rendering & behavior ---------- */
 
-let copyState = {
+const copyState = {
   root: null,
   anchor: null,
   records: [],
   filtered: [],
-  activeIndex: 0,
 };
 
-function ensureCopyDom() {
+/**
+ * Ensure the popover DOM structure exists and wire basic interactions.
+ *
+ * @returns {{ entryItem: HTMLElement, copyPopup: HTMLElement, search: HTMLInputElement, listContainer: HTMLElement, closeButton: HTMLButtonElement }} References to created DOM elements.
+ */
+function ensureCopyPopoverElements() {
   if (copyState.root) return copyState.root;
+
   const entryItem = document.createElement("div");
   entryItem.className = "copy-entryItem";
   entryItem.hidden = true;
@@ -90,19 +122,12 @@ function ensureCopyDom() {
 
   document.body.appendChild(entryItem);
   document.body.appendChild(copyPopup);
-  copyState.root = {
-    entryItem,
-    copyPopup,
-    search: copyPopup.querySelector(".copy-search"),
-    list: copyPopup.querySelector(".copy-list"),
-    close: copyPopup.querySelector(".copy-close"),
-  };
 
   const search = copyPopup.querySelector(".copy-search");
-  const list = copyPopup.querySelector(".copy-list");
-  const closeBtn = copyPopup.querySelector(".copy-close");
+  const listContainer = copyPopup.querySelector(".copy-list");
+  const closeButton = copyPopup.querySelector(".copy-close");
 
-  copyState.root = { entryItem, copyPopup, search, list, closeBtn };
+  copyState.root = { entryItem, copyPopup, search, listContainer, closeButton };
 
   // Close behaviors
   const closePopover = () => {
@@ -113,81 +138,93 @@ function ensureCopyDom() {
   };
 
   entryItem.addEventListener("click", closePopover);
-  closeBtn?.addEventListener("click", closePopover);
+  closeButton?.addEventListener("click", closePopover);
 
-  // Search
+  // Search behavior
   search.addEventListener("input", () => {
-    renderCopyList(filterRecords(copyState.records, search.value));
+    renderCopyListItems(filterRosterRecordsBySearchTerm(copyState.records, search.value));
   });
 
   return copyState.root;
 }
 
-function filterRecords(records, searchValue) {
+/**
+ * Filter roster records by a case-insensitive search term, limiting to 200 results.
+ *
+ * @param {Array<object>} records - All roster records.
+ * @param {string} searchValue - Free-text search input.
+ * @returns {Array<object>} Filtered records up to 200 items.
+ */
+function filterRosterRecordsBySearchTerm(records, searchValue) {
   const term = String(searchValue || "")
     .trim()
     .toLowerCase();
-  if (!term) return records.slice(0, 200);
-  return records
-    .filter((results) => {
-      return [
-        results.id,
-        results.road,
-        results.number,
-        results.model,
-        results.owner,
-      ].some((value) => (value || "").toLowerCase().includes(term));
+  if (!term) return (records || []).slice(0, 200);
+
+  return (records || [])
+    .filter((record) => {
+      return [record.id, record.road, record.number, record.model, record.owner].some((value) =>
+        (value || "").toLowerCase().includes(term)
+      );
     })
     .slice(0, 200);
 }
 
-function renderCopyList(list) {
-  const { list: ul } = copyState.root;
-  copyState.filtered = list;
+/**
+ * Render the filtered list of roster records into the popover list container.
+ *
+ * @param {Array<object>} records - Records to render.
+ * @returns {void}
+ */
+function renderCopyListItems(records) {
+  const { listContainer } = copyState.root;
+  copyState.filtered = records;
 
-  ul.innerHTML = "";
-  if (!list.length) {
-    ul.innerHTML = `<div class="copy-item copy-item-no-results" aria-disabled="true">No matches</div>`;
+  listContainer.innerHTML = "";
+  if (!records.length) {
+    listContainer.innerHTML =
+      '<div class="copy-item copy-item-no-results" aria-disabled="true">No matches</div>';
     return;
   }
 
-  list.forEach((rosterEntry) => {
-    const li = document.createElement("div");
-    li.className = "copy-item";
-    li.setAttribute("role", "option");
+  records.forEach((rosterEntry) => {
+    const listItem = document.createElement("div");
+    listItem.className = "copy-item";
+    listItem.setAttribute("role", "option");
 
-    li.innerHTML = `
-      <div class="copy-thumb"><img alt="" src="${iconUrl(
-        rosterEntry.id
-      )}"></div>
+    listItem.innerHTML = `
+      <div class="copy-thumb"><img alt="" src="${buildIconUrl(rosterEntry.id)}"></div>
       <div class="copy-main">
         <div class="copy-title">${escapeHtml(rosterEntry.id)}</div>
         <div class="copy-sub">${escapeHtml(
-          [
-            rosterEntry.road,
-            rosterEntry.number,
-            rosterEntry.model,
-            rosterEntry.owner,
-          ]
+          [rosterEntry.road, rosterEntry.number, rosterEntry.model, rosterEntry.owner]
             .filter(Boolean)
             .join(" | ")
         )}</div>
       </div>
     `;
 
-    li.addEventListener("click", (event) => {
-      if (event.target.closest(".copy-choose") || event.currentTarget === li)
-        onChoose(rosterEntry);
-    });
-    li.addEventListener("mouseenter", () => {
-      li.focus({ preventScroll: true });
+    listItem.addEventListener("click", (event) => {
+      if (event.target.closest(".copy-choose") || event.currentTarget === listItem) {
+        handleRecordChosen(rosterEntry);
+      }
     });
 
-    ul.appendChild(li);
+    listItem.addEventListener("mouseenter", () => {
+      listItem.focus({ preventScroll: true });
+    });
+
+    listContainer.appendChild(listItem);
   });
 }
 
-function onChoose(record) {
+/**
+ * Handle selection of a roster record from the popover.
+ *
+ * @param {object} record - The chosen roster record.
+ * @returns {void}
+ */
+function handleRecordChosen(record) {
   const { entryItem, copyPopup } = copyState.root;
   entryItem.hidden = true;
   copyPopup.hidden = true;
@@ -196,7 +233,14 @@ function onChoose(record) {
   openCopyFromRecord(record, copyState.records);
 }
 
-function positionPopover(anchor, copyPopup) {
+/**
+ * Position the copy popover relative to its anchor.
+ *
+ * @param {HTMLElement} anchor - The anchor element that triggers the popover.
+ * @param {HTMLElement} copyPopup - The popover element to position.
+ * @returns {void}
+ */
+function positionCopyPopover(anchor, copyPopup) {
   const rect = anchor.getBoundingClientRect();
   const top = rect.bottom + 8;
 
@@ -204,8 +248,14 @@ function positionPopover(anchor, copyPopup) {
   copyPopup.style.right = "10px";
 }
 
+/**
+ * Open the "Copy From" selector popover. Fetches roster, renders list, and focuses search.
+ *
+ * @param {HTMLElement} anchorEl - Optional anchor element. Defaults to #addLocoMore.
+ * @returns {Promise<void>} Resolves after the popover is opened or an error toast is shown.
+ */
 export async function openCopySelector(anchorEl) {
-  const ui = ensureCopyDom();
+  const uiElements = ensureCopyPopoverElements();
   copyState.anchor = anchorEl || document.getElementById("addLocoMore");
 
   try {
@@ -216,10 +266,10 @@ export async function openCopySelector(anchorEl) {
     return;
   }
 
-  ui.entryItem.hidden = false;
-  ui.copyPopup.hidden = false;
-  renderCopyList(filterRecords(copyState.records, ""));
-  positionPopover(copyState.anchor, ui.copyPopup);
-  ui.search.value = "";
-  ui.search.focus({ preventScroll: true });
+  uiElements.entryItem.hidden = false;
+  uiElements.copyPopup.hidden = false;
+  renderCopyListItems(filterRosterRecordsBySearchTerm(copyState.records, ""));
+  positionCopyPopover(copyState.anchor, uiElements.copyPopup);
+  uiElements.search.value = "";
+  uiElements.search.focus({ preventScroll: true });
 }

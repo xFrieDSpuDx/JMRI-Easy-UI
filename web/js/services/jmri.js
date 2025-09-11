@@ -4,22 +4,32 @@ import { getJSON, postJSON, postForm, postMultipart } from "./api.js";
 /* =====================================================================================
  * Constants (JMRI / DCC specifics)
  * ===================================================================================== */
-const CV = {
-  SHORT_ADDRESS: 1,
-  LONG_ADDR_MSB: 17,
-  LONG_ADDR_LSB: 18,
-  CONFIG: 29, // CV29
+
+/** CV register numbers used for address reads/writes. */
+const cvRegister = {
+  shortAddress: 1,
+  longAddrMsb: 17,
+  longAddrLsb: 18,
+  config: 29, // CV29
 };
 
-const CV29_FLAGS = {
-  LONG_ADDRESS_MODE: 0x20, // bit 5
+/** Bit flags within CV29. */
+const cv29Flags = {
+  longAddressMode: 0x20, // bit 5
 };
 
-const CV17_BASE = 192; // NMRA long address base for CV17
+/** NMRA long address base for CV17. */
+const cv17Base = 192;
 
+/**
+ * Resolve the roster file name for a given logical roster ID.
+ *
+ * @param {string} locoId
+ * @returns {Promise<string|null>} Resolved file name (e.g., "ABC123.xml") or null.
+ */
 export async function resolveFileNameById(locoId) {
   const roster = await getRoster();
-  const match = (roster || []).find((r) => (r?.id || "") === locoId);
+  const match = (roster || []).find((rosterEntry) => (rosterEntry?.id || "") === locoId);
   return match?.fileName || null;
 }
 
@@ -31,17 +41,14 @@ export async function resolveFileNameById(locoId) {
  * Get the friendly name of the currently loaded JMRI railroad.
  * Falls back to "My Railroad" if unavailable.
  *
- * Endpoint: /json/railroad  → usually an array like [{ type: 'railroad', data: { name: '...' } }]
+ * Endpoint: /json/railroad → usually: [{ type:'railroad', data:{ name:'...' } }]
+ *
+ * @returns {Promise<string>}
  */
 export async function getRailroadName() {
   try {
     const payload = await getJSON("/json/railroad");
-
-    // Prefer the item with type === 'railroad'
-    const item = Array.isArray(payload)
-      ? payload.find((x) => x && x.type === "railroad")
-      : null;
-
+    const item = Array.isArray(payload) ? payload.find((x) => x && x.type === "railroad") : null;
     return item?.data?.name || "My Railroad";
   } catch {
     return "My Railroad";
@@ -52,34 +59,49 @@ export async function getRailroadName() {
  * Fetch the full roster list.
  *
  * Endpoint: /api/roster
+ *
+ * @param {{ fresh?: boolean }} [opts]
+ * @returns {Promise<any>}
  */
 export async function getRoster(opts = {}) {
   const fresh = !!opts.fresh;
   const url = fresh ? `/api/roster?t=${Date.now()}` : "/api/roster";
-  return await getJSON(url);
+  return getJSON(url);
 }
 
+/**
+ * Fetch saved decoder information for a roster ID.
+ *
+ * @param {string} rosterId
+ * @returns {Promise<any>}
+ */
 export async function getDecoder(rosterId) {
   const url = `/api/roster/decoder?id=${encodeURIComponent(rosterId)}`;
-  return await getJSON(url);
+  return getJSON(url);
 }
 
 /**
  * Delete a roster entry by file name (e.g., "ABC123.xml").
  *
  * Endpoint: POST /api/roster/delete (form: file=<fileName>)
+ *
+ * @param {string} fileName
+ * @returns {Promise<any|string>}
  */
 export async function deleteRoster(fileName) {
   const form = new URLSearchParams();
   form.set("file", fileName);
-  return await postForm("/api/roster/delete", form);
+  return postForm("/api/roster/delete", form);
 }
 
 /**
- * Create or update a roster entry.
- * The server decides add/update based on `file`.
+ * Create or update a roster entry. The server decides add/update based on `file`.
  *
  * Endpoint: POST /api/roster/add
+ *
+ * @param {string} fileName
+ * @param {{ id:string, address:string, road:string, number:string, owner:string, model:string, image?:string }} record
+ * @returns {Promise<any|string>}
  */
 export async function saveRosterEntry(fileName, record) {
   const form = new URLSearchParams();
@@ -96,12 +118,15 @@ export async function saveRosterEntry(fileName, record) {
     form.set("image", record.image || "");
   }
 
-  return await postForm("/api/roster/add", form);
+  return postForm("/api/roster/add", form);
 }
 
 /**
- * Create or update the loco decoder values
+ * Create or update the loco decoder values.
  *
+ * @param {string} rosterId
+ * @param {{ family:string, model:string, manufacturer?:string, mfgId?:number, mfgName?:string, productId?:number, modelId?:string }} decoder
+ * @returns {Promise<any|string>}
  */
 export async function saveRosterDecoder(
   rosterId,
@@ -117,31 +142,40 @@ export async function saveRosterDecoder(
   });
 
   if (manufacturer) form.append("manufacturer", manufacturer);
-  if (mfgId != null) form.append("mfgId", String(mfgId));
-  if (productId != null) form.append("productId", String(productId));
-  if (mfgName != null) form.append("mfgName", String(mfgName));
-  if (modelId != null) form.append("modelId", String(modelId));
+  if (mfgId !== null && typeof mfgId !== "undefined") form.append("mfgId", String(mfgId));
+  if (productId !== null && typeof productId !== "undefined") form.append("productId", String(productId));
+  if (mfgName !== null && typeof mfgName !== "undefined") form.append("mfgName", String(mfgName));
+  if (modelId !== null && typeof modelId !== "undefined") form.append("modelId", String(modelId));
 
-  return await postForm("/api/roster/decoder/save", form);
+  return postForm("/api/roster/decoder/save", form);
 }
+
 /**
  * Upload/replace a roster image by logical ID (JMRI roster id, not file name).
  *
  * Endpoint: POST /api/roster/image?id=<id> (multipart: field "image")
+ *
+ * @param {string} id
+ * @param {File} file
+ * @returns {Promise<any|string>}
  */
 export async function uploadRosterImage(id, file) {
   const formData = new FormData();
-  formData.append("image", file, file.name); // if JMRI expects "image"
-  return await postMultipart(
-    `/api/roster/image?id=${encodeURIComponent(id)}`,
-    formData
-  );
+  formData.append("image", file, file.name);
+  return postMultipart(`/api/roster/image?id=${encodeURIComponent(id)}`, formData);
 }
 
+/**
+ * Upload a roster XML file (with optional safe filename override).
+ *
+ * @param {File} file
+ * @param {string} filenameOverride
+ * @returns {Promise<any|string>}
+ */
 export async function uploadRosterXml(file, filenameOverride) {
   const formData = new FormData();
   formData.append("file", file, filenameOverride);
-  return await postMultipart("/api/roster/add", formData);
+  return postMultipart("/api/roster/add", formData);
 }
 
 /* =====================================================================================
@@ -152,11 +186,12 @@ export async function uploadRosterXml(file, filenameOverride) {
  * Get functions for a given roster file (e.g., "ABC123.xml").
  *
  * Endpoint: /api/roster/fn/list?file=<file>
+ *
+ * @param {string} fileName
+ * @returns {Promise<any>}
  */
 export async function getFunctions(fileName) {
-  return await getJSON(
-    `/api/roster/fn/list?file=${encodeURIComponent(fileName)}`
-  );
+  return getJSON(`/api/roster/fn/list?file=${encodeURIComponent(fileName)}`);
 }
 
 /**
@@ -164,20 +199,24 @@ export async function getFunctions(fileName) {
  *
  * Endpoint: POST /api/roster/fn/save
  * Form arrays: num[], label[], lockable[], img[], imgSel[]
+ *
+ * @param {string} fileName
+ * @param {Array<{num:number, label:string, lockable:boolean, img?:string, imgSel?:string}>} items
+ * @returns {Promise<any|string>}
  */
 export async function saveFunctions(fileName, items) {
   const form = new URLSearchParams();
   form.set("file", fileName);
 
-  for (const it of items) {
-    form.append("num[]", String(it.num ?? ""));
-    form.append("label[]", String(it.label ?? ""));
-    form.append("lockable[]", it.lockable ? "true" : "false");
-    form.append("img[]", String(it.img ?? ""));
-    form.append("imgSel[]", String(it.imgSel ?? ""));
+  for (const item of items) {
+    form.append("num[]", String(item.num ?? ""));
+    form.append("label[]", String(item.label ?? ""));
+    form.append("lockable[]", item.lockable ? "true" : "false");
+    form.append("img[]", String(item.img ?? ""));
+    form.append("imgSel[]", String(item.imgSel ?? ""));
   }
 
-  return await postForm("/api/roster/fn/save", form);
+  return postForm("/api/roster/fn/save", form);
 }
 
 /* =====================================================================================
@@ -191,6 +230,8 @@ export async function saveFunctions(fileName, items) {
  * Reads: CV1 (short), CV17/18 (long components), CV29 (mode flag)
  *
  * Endpoint: /api/jmri/read?list=1,17,18,29
+ *
+ * @returns {Promise<string>}
  */
 export async function readAddressFromTrack() {
   const data = await getJSON("/api/jmri/read?list=1,17,18,29");
@@ -198,22 +239,21 @@ export async function readAddressFromTrack() {
   // JMRI may return { ok, values:{...} } or just { ... } — normalise:
   const values = data?.values ?? data ?? {};
 
-  const cv29 = Number(values[String(CV.CONFIG)]);
+  const cv29 = Number(values[String(cvRegister.config)]);
   if (!Number.isFinite(cv29)) return "";
 
-  const longMode =
-    (cv29 & CV29_FLAGS.LONG_ADDRESS_MODE) === CV29_FLAGS.LONG_ADDRESS_MODE;
+  const longMode = (cv29 & cv29Flags.longAddressMode) === cv29Flags.longAddressMode;
 
   if (longMode) {
-    const msb17 = Number(values[String(CV.LONG_ADDR_MSB)]); // CV17
-    const lsb18 = Number(values[String(CV.LONG_ADDR_LSB)]); // CV18
+    const msb17 = Number(values[String(cvRegister.longAddrMsb)]); // CV17
+    const lsb18 = Number(values[String(cvRegister.longAddrLsb)]); // CV18
     if (!Number.isFinite(msb17) || !Number.isFinite(lsb18)) return "";
-    const longAddress = 256 * (msb17 - CV17_BASE) + lsb18; // ← missing '+' fixed
+    const longAddress = 256 * (msb17 - cv17Base) + lsb18;
     return String(longAddress);
-  } else {
-    const cv1 = Number(values[String(CV.SHORT_ADDRESS)]);
-    return Number.isFinite(cv1) ? String(cv1) : "";
   }
+
+  const cv1 = Number(values[String(cvRegister.shortAddress)]);
+  return Number.isFinite(cv1) ? String(cv1) : "";
 }
 
 /* =====================================================================================
@@ -222,8 +262,10 @@ export async function readAddressFromTrack() {
 
 /**
  * Ask the server to write the DCC address (server computes CV1/17/18/29).
+ *
  * @param {number|string} newAddress  Desired DCC address (1..9999)
- * @param {{ mode?: 'ops'|'service', currentAddress?: number, currentLong?: boolean }} opts
+ * @param {{ mode?: "ops"|"service", currentAddress?: number, currentLong?: boolean }} [opts]
+ * @returns {Promise<any>} Server response (expected shape: { ok:true, wrote:{...} }).
  */
 export async function writeAddressToTrack(newAddress, opts = {}) {
   const mode = opts.mode === "ops" ? "ops" : "service"; // default service
@@ -239,18 +281,14 @@ export async function writeAddressToTrack(newAddress, opts = {}) {
   // For ops mode, server needs the CURRENT address/long to reach the loco.
   if (mode === "ops") {
     const curr = Number(opts.currentAddress);
-    const isLong =
-      typeof opts.currentLong === "boolean" ? opts.currentLong : curr >= 128;
+    const isLong = typeof opts.currentLong === "boolean" ? opts.currentLong : curr >= 128;
     if (!Number.isFinite(curr) || curr <= 0) {
-      throw new Error(
-        "Ops mode requires { currentAddress, currentLong } to reach the decoder"
-      );
+      throw new Error("Ops mode requires { currentAddress, currentLong } to reach the decoder");
     }
     body.set("address", String(curr));
     body.set("long", String(!!isLong));
   }
 
-  // Use the existing POST helper; URLSearchParams sets the correct content-type
   const res = await postForm("/api/jmri/writeAddress", body);
   if (!res || res.ok !== true) {
     throw new Error((res && res.message) || "Address write failed");
@@ -260,6 +298,7 @@ export async function writeAddressToTrack(newAddress, opts = {}) {
 
 /**
  * Low-level CV write helper.
+ *
  * Backend contract (proposed):
  *   POST /api/jmri/write
  *   Form fields:
@@ -270,14 +309,15 @@ export async function writeAddressToTrack(newAddress, opts = {}) {
  * Response: { ok: true } or throws on error.
  *
  * @param {Record<number, number>} valuesByCv
- * @param {{ mode?: 'ops'|'service' }} [opts]
+ * @param {{ mode?: "ops"|"service", address?: number, long?: boolean }} [opts]
+ * @returns {Promise<void>}
  */
 export async function writeCVs(valuesByCv, opts = {}) {
   const mode = opts.mode === "service" ? "service" : "ops";
-  const cvs = Object.keys(valuesByCv)
+  const cvNumbers = Object.keys(valuesByCv)
     .map(Number)
-    .sort((a, b) => a - b);
-  if (!cvs.length) return;
+    .sort((left, right) => left - right);
+  if (!cvNumbers.length) return;
 
   const form = new URLSearchParams();
   form.set("mode", mode);
@@ -290,12 +330,11 @@ export async function writeCVs(valuesByCv, opts = {}) {
     form.set("address", String(addr));
     form.set("long", String(isLong));
   }
-  form.set("list", cvs.join(","));
-  for (const cv of cvs) {
-    form.set(`v[${cv}]`, String(valuesByCv[cv]));
+  form.set("list", cvNumbers.join(","));
+  for (const cvNumber of cvNumbers) {
+    form.set(`v[${cvNumber}]`, String(valuesByCv[cvNumber]));
   }
 
-  // Adjust this path if your backend differs.
   const result = await postForm("/api/jmri/write", form);
   if (result && result.ok === false) {
     throw new Error(result.message || "Write failed");
@@ -306,17 +345,24 @@ export async function writeCVs(valuesByCv, opts = {}) {
  * Read Decoder from Programming Track
  * ===================================================================================== */
 
-// ---- Decoder catalog: all decoders known to JMRI ----
+/**
+ * Fetch the full decoder catalog known to the backend.
+ *
+ * @returns {Promise<any[]>}
+ */
 export async function getDecoderCatalog() {
   const response = await fetch("/api/decoder/identify?all=1"); // adjust if needed
   if (!response.ok) throw new Error("Failed to load decoder catalog");
-  // Expecting an array like:
-  // [{ id, name, manufacturer, family }, ...]
   return response.json();
 }
 
-// ---- Identify decoder from loco (read from track/ops) ----
-// dccAddress is optional; your backend may auto-detect via current programmer.
+/**
+ * Identify decoder from loco (read from track/ops).
+ * dccAddress is optional; backend may auto-detect via current programmer.
+ *
+ * @param {{ dccAddress?: number|string }} [params]
+ * @returns {Promise<any>} Identification payload.
+ */
 export async function identifyDecoderFromLoco({ dccAddress } = {}) {
   const response = await fetch("/api/decoder/identify", {
     method: "POST",
@@ -327,10 +373,11 @@ export async function identifyDecoderFromLoco({ dccAddress } = {}) {
     let details = "";
     try {
       details = await response.text();
-    } catch {}
+    } catch (error) {
+      console.warn(error);
+    }
     throw new Error(details || "Failed to read decoder");
   }
-  // Expect array of candidates: [{ id, name, manufacturer, family }, ...]
   return response.json();
 }
 
@@ -339,9 +386,9 @@ export async function identifyDecoderFromLoco({ dccAddress } = {}) {
  * ===================================================================================== */
 
 /**
- * Fetch the list of turnouts from JMRI and normalise the response.
+ * Fetch the list of turnouts from JMRI.
  *
- * @returns {Promise<Array<normalisedTurnout>>} A list of normalised turnout records.
+ * @returns {Promise<any[]>} Raw turnouts payload.
  * @throws {Error} If the endpoint cannot be loaded or returns no usable data.
  */
 export async function getTurnouts() {
@@ -364,31 +411,58 @@ export async function getTurnouts() {
 /* =====================================================================================
  * JMRI Stores Helpers
  * ===================================================================================== */
+
 export let _panelsFileCache = null;
 
+/**
+ * Update the cached panels file name.
+ *
+ * @param {string} value
+ * @returns {void}
+ */
 export function updatePanelsFileCache(value) {
   _panelsFileCache = value;
 }
 
+/**
+ * Get the currently configured panels file info.
+ *
+ * @returns {Promise<any>}
+ */
 export async function getCurrentPanelsFile() {
-  return await getJSON("/api/store/user/file");
+  return getJSON("/api/store/user/file");
 }
 
+/**
+ * Ask the server to store the current user configuration.
+ *
+ * @param {string} [fileName]
+ * @returns {Promise<any|string>}
+ */
 export async function storeUserConfig(fileName) {
-  const url = fileName
-    ? `/api/store/user?file=${encodeURIComponent(fileName)}`
-    : "/api/store/user";
-
-  return await postJSON(url);
+  const url = fileName ? `/api/store/user?file=${encodeURIComponent(fileName)}` : "/api/store/user";
+  return postJSON(url);
 }
 
 /* =====================================================================================
  * JMRI Active Connection Helpers
  * ===================================================================================== */
+
+/**
+ * Get the list of available JMRI connections (with active flag).
+ *
+ * @returns {Promise<Array>} Connections payload.
+ */
 export async function getActiveConnection() {
-  return await getJSON("/api/connections");
+  return getJSON("/api/connections");
 }
 
+/**
+ * Select the active JMRI connection by system prefix.
+ *
+ * @param {string} connectionPrefix
+ * @returns {Promise<any|string>}
+ */
 export async function setActiveConnection(connectionPrefix) {
-  return await postJSON(`/api/connections/select?systemPrefix=${connectionPrefix}`);
+  return postJSON(`/api/connections/select?systemPrefix=${connectionPrefix}`);
 }

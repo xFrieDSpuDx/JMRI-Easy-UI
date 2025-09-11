@@ -1,59 +1,91 @@
 // js/ui/panels/index.js
+
+/** @typedef {"roster"|"turnouts"|"settings"} PanelName */
+
+/** Map of logical panel names to their element IDs. */
 const PANEL_IDS = {
-  roster:   "panelRoster",
+  roster: "panelRoster",
   turnouts: "panelTurnouts",
   settings: "panelSettings",
 };
 
+/** Map of logical panel names to their corresponding nav button IDs. */
 const NAV_IDS = {
-  roster:   "navRoster",
+  roster: "navRoster",
   turnouts: "navTurnouts",
   settings: "navSettings",
 };
 
-function byId(id) { return document.getElementById(id); }
+/**
+ * Shorthand for document.getElementById.
+ *
+ * @param {string} id
+ * @returns {HTMLElement|null}
+ */
+function byId(id) {
+  return document.getElementById(id);
+}
 
+/**
+ * Show the requested panel, update nav state, and broadcast a "panel:changed" event.
+ *
+ * @param {PanelName} name - The logical panel name to display.
+ * @returns {void}
+ */
 export function showPanel(name) {
-  const wanted = String(name || "roster");
+  const wantedPanel = String(name || "roster");
 
   // Toggle panels
   for (const key of Object.keys(PANEL_IDS)) {
-    const el = byId(PANEL_IDS[key]);
-    if (!el) continue;
-    if (key === wanted) el.removeAttribute("hidden");
-    else el.setAttribute("hidden", "");
+    const panelElement = byId(PANEL_IDS[key]);
+    if (!panelElement) continue;
+    if (key === wantedPanel) {
+      panelElement.removeAttribute("hidden");
+    } else {
+      panelElement.setAttribute("hidden", "");
+    }
   }
 
   // Toggle nav state
   for (const key of Object.keys(NAV_IDS)) {
-    const btn = byId(NAV_IDS[key]);
-    if (!btn) continue;
-    btn.classList.toggle("active", key === wanted);
-    btn.setAttribute("aria-current", key === wanted ? "page" : "false");
+    const navButton = byId(NAV_IDS[key]);
+    if (!navButton) continue;
+    navButton.classList.toggle("active", key === wantedPanel);
+    navButton.setAttribute("aria-current", key === wantedPanel ? "page" : "false");
   }
 
   // Broadcast
-  document.dispatchEvent(new CustomEvent("panel:changed", { detail: { name: wanted } }));
+  document.dispatchEvent(new CustomEvent("panel:changed", { detail: { name: wantedPanel } }));
 }
 
-/** One-time wiring for panel navigation + initial panel. */
+/**
+ * One-time wiring for panel navigation + initial panel.
+ *
+ * - Click on a .nav-btn[data-view] switches panels
+ * - URL hash (#roster / #turnouts / #settings) switches panels
+ * - On load, selects the panel from hash or defaults to "roster"
+ *
+ * @returns {void}
+ */
 export function initPanels() {
   // Click nav → show panel
-  document.addEventListener("click", (ev) => {
-    const navBtn = ev.target.closest(".nav-btn[data-view]");
-    if (!navBtn) return;
-    const name = navBtn.getAttribute("data-view");
-    if (!name) return;
-    showPanel(name);
+  document.addEventListener("click", (event) => {
+    const navButton = event.target.closest(".nav-btn[data-view]");
+    if (!navButton) return;
+    const viewName = navButton.getAttribute("data-view");
+    if (!viewName) return;
+    showPanel(/** @type {PanelName} */ (viewName));
   });
 
-  // Hash routing (#roster / #turnouts)
+  // Hash routing (#roster / #turnouts / #settings)
   window.addEventListener("hashchange", () => {
-    const name = location.hash.replace(/^#/, "");
-    if (PANEL_IDS[name]) showPanel(name);
+    const viewName = window.location.hash.replace(/^#/, "");
+    if (Object.prototype.hasOwnProperty.call(PANEL_IDS, viewName)) {
+      showPanel(/** @type {PanelName} */ (viewName));
+    }
   });
 
   // Initial panel
-  const initial = location.hash.replace(/^#/, "") || "roster";
-  showPanel(PANEL_IDS[initial] ? initial : "roster");
+  const initialPanelName = window.location.hash.replace(/^#/, "") || "roster";
+  showPanel(Object.prototype.hasOwnProperty.call(PANEL_IDS, initialPanelName) ? initialPanelName : "roster");
 }

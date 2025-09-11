@@ -1,26 +1,54 @@
 // js/ui/toast.js
 
-/** Root toast element */
-const toastElement = document.getElementById("toast");
+const TOAST_ID = "toast";
+const TOAST_DIALOG_ID = "toastLayer";
 
-/** Timer id for hiding the toast after a delay */
 let hideToastTimerId = 0;
 
 /**
- * Show a brief toast message.
+ * Look up the toast dialog and content nodes from the DOM.
  *
- * @param {string} message      - Text to display inside the toast.
- * @param {number} durationMs   - How long to show the toast (milliseconds). Default: 2000ms.
+ * @returns {{ toastDialog: HTMLDialogElement|null, toastElement: HTMLElement|null }}
+ */
+function getToastNodes() {
+  const toastDialog = /** @type {HTMLDialogElement|null} */ (document.getElementById(TOAST_DIALOG_ID));
+  const toastElement = /** @type {HTMLElement|null} */ (document.getElementById(TOAST_ID));
+
+  if (!toastDialog || !toastElement) {
+    // Markup was not inserted in the page
+    return { toastDialog: null, toastElement: null };
+  }
+  return { toastDialog, toastElement };
+}
+
+/**
+ * Show a brief toast message above everything (even modal <dialog>s).
+ * Visuals are fully controlled by CSS; JS just toggles classes & opens/closes the dialog.
+ *
+ * @param {string} message - Text to display inside the toast.
+ * @param {number} [durationMs=2000] - Time on screen before hiding (ms).
+ * @returns {void}
  */
 export function showToast(message, durationMs = 2000) {
-  if (!toastElement) return;
+  const { toastDialog, toastElement } = getToastNodes();
+  if (!toastDialog || !toastElement) return;
 
-  toastElement.textContent = message;
+  toastElement.textContent = String(message ?? "");
+
+  // Put the toast in the browser's top layer
+  if (!toastDialog.open) toastDialog.show();
+
+  // Show via CSS class
   toastElement.classList.add("show");
 
-  // Reset any previous hide timer, then schedule a new one
   clearTimeout(hideToastTimerId);
   hideToastTimerId = setTimeout(() => {
     toastElement.classList.remove("show");
-  }, durationMs);
+
+    // Close the dialog after the CSS transition ends (keep in sync with your CSS)
+    const TRANSITION_MS = 200;
+    setTimeout(() => {
+      if (toastDialog.open) toastDialog.close();
+    }, TRANSITION_MS);
+  }, Number.isFinite(durationMs) ? durationMs : 2000);
 }

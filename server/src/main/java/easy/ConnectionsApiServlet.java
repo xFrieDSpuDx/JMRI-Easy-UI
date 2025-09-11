@@ -1,7 +1,7 @@
-package dev.yourname.jmri.easy;
+package easy;
 
-import dev.yourname.jmri.easy.util.JsonUtil;
-import dev.yourname.jmri.easy.util.RosterUtil;
+import easy.util.JsonUtil;
+import easy.util.RosterUtil;
 
 import jmri.InstanceManager;
 import jmri.SystemConnectionMemo;

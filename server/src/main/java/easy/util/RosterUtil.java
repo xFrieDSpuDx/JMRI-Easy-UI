@@ -1,4 +1,4 @@
-package dev.yourname.jmri.easy.util;
+package easy.util;
 
 import jmri.jmrit.roster.*;
 import java.io.*;

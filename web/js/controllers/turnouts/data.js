@@ -1,8 +1,26 @@
 // js/services/turnouts.js
+
 import { jmriJsonCalls } from "../../services/api.js";
-import { _panelsFileCache, storeUserConfig } from "../../services/jmri.js";
+import { _panelsFileCache as panelsFileCache, storeUserConfig } from "../../services/jmri.js";
+
 /**
- * normalise any of the common JMRI JSON shapes into a simple array,
+ * @typedef {object} NormalisedTurnout
+ * @property {string} title
+ * @property {string} address
+ * @property {string} comment
+ * @property {number} [state]
+ * @property {"Closed"|"Thrown"|"Unknown"} normalisedState
+ * @property {boolean} isThrown
+ * @property {boolean} isClosed
+ * @property {boolean} isUnknown
+ * @property {boolean} inverted
+ * @property {string} name
+ * @property {string} userName
+ * @property {Record<string, any>} data
+ */
+
+/**
+ * Normalise any of the common JMRI JSON shapes into a simple array,
  * then map each entry to a view-friendly structure.
  *
  * Shapes seen in the wild:
@@ -14,24 +32,34 @@ import { _panelsFileCache, storeUserConfig } from "../../services/jmri.js";
  * - { <name>: {...}, <name>: {...}, ... }  (dictionary keyed by name)
  *
  * @param {unknown} rawPayload
- * @returns {Array<normalisedTurnout>}
+ * @returns {Array<NormalisedTurnout>}
  */
 export function normaliseTurnouts(rawPayload) {
+  /** @type {any[] | null} */
   let items = null;
 
   if (Array.isArray(rawPayload)) {
     items = rawPayload;
   } else if (rawPayload && typeof rawPayload === "object") {
+    // @ts-ignore - narrow at runtime
     if (Array.isArray(rawPayload.data)) {
+      // @ts-ignore
       items = rawPayload.data;
+      // @ts-ignore
     } else if (Array.isArray(rawPayload.turnouts)) {
+      // @ts-ignore
       items = rawPayload.turnouts;
+      // @ts-ignore
     } else if (Array.isArray(rawPayload.list)) {
+      // @ts-ignore
       items = rawPayload.list;
+      // @ts-ignore
     } else if (Array.isArray(rawPayload.items)) {
+      // @ts-ignore
       items = rawPayload.items;
     } else {
       // Dictionary keyed by name → use the values
+      // @ts-ignore
       items = Object.values(rawPayload);
     }
   }
@@ -43,7 +71,7 @@ export function normaliseTurnouts(rawPayload) {
  * Convert a single raw turnout object into a UI-friendly record while
  * preserving all original fields under `data`.
  *
- * Display rules (as requested):
+ * Display rules:
  * - title   = userName
  * - address = name
  * - comment = comment (if present)
@@ -54,14 +82,13 @@ export function normaliseTurnouts(rawPayload) {
  *   Some layouts treat 0 as Unknown; `inverted` flips the meaning.
  *
  * @param {any} source - Raw turnout item as returned by JMRI.
- * @returns {normalisedTurnout | null}
+ * @returns {NormalisedTurnout | null}
  */
 export function toTurnoutRecord(source) {
   if (!source) return null;
 
   // Preserve everything the server provided (prefer nested `data`, else the whole source)
-  const rawData =
-    source.data && typeof source.data === "object" ? source.data : {};
+  const rawData = (source.data && typeof source.data === "object" ? source.data : source) || {};
 
   // Core fields used for display
   const name = rawData.name || "";
@@ -76,22 +103,19 @@ export function toTurnoutRecord(source) {
   let isClosed = false;
   let isUnknown = true;
 
-  // Typical JMRI constants (per your current logic):
+  // Typical JMRI constants:
   // Thrown = 4, Closed = 2. The `inverted` flag flips the interpretation.
   if ((rawState === 4 && !isInverted) || (rawState === 2 && isInverted)) {
     normalisedState = "Thrown";
     isThrown = true;
     isUnknown = false;
-  } else if (
-    (rawState === 2 && !isInverted) ||
-    (rawState === 4 && isInverted)
-  ) {
+  } else if ((rawState === 2 && !isInverted) || (rawState === 4 && isInverted)) {
     normalisedState = "Closed";
     isClosed = true;
     isUnknown = false;
-  } // else remains "Unknown"
+  }
 
-  /** @type {normalisedTurnout} */
+  /** @type {NormalisedTurnout} */
   const record = {
     // Display fields
     title: userName,
@@ -119,18 +143,19 @@ export function toTurnoutRecord(source) {
 
 /**
  * Create a new turnout (JMRI: PUT /json/turnout/:systemName).
+ *
  * @param {{ systemName:string, userName?:string, comment?:string, inverted?:boolean }} input
- * @returns {Promise<object>} normalised turnout record
+ * @returns {Promise<NormalisedTurnout>} Normalised turnout record.
  */
 export async function createTurnout(input) {
   const systemName = String(input.systemName || "").trim();
   if (!systemName) throw new Error("System Name is required");
 
-  // Build the same shape you use for update (a plain object).
+  // Build payload; include only non-nullish fields.
   const payload = {
     name: systemName,
     ...(input.userName != null ? { userName: input.userName } : {}),
-    ...(input.comment  != null ? { comment:  input.comment }  : {}),
+    ...(input.comment != null ? { comment: input.comment } : {}),
     ...(input.inverted != null ? { inverted: !!input.inverted } : {}),
   };
 
@@ -145,11 +170,9 @@ export async function createTurnout(input) {
     Object.prototype.hasOwnProperty.call(payload, "comment") ||
     Object.prototype.hasOwnProperty.call(payload, "inverted");
 
-  const finalRaw = sentExtras
-    ? await jmriJsonCalls("POST", path, payload)
-    : created;
+  const finalRaw = sentExtras ? await jmriJsonCalls("POST", path, payload) : created;
 
-  await storeUserConfig(_panelsFileCache);
+  await storeUserConfig(panelsFileCache);
 
   return toTurnoutRecord(finalRaw);
 }
@@ -157,12 +180,15 @@ export async function createTurnout(input) {
 /**
  * Update an existing turnout (JMRI: POST /json/turnout/:systemName).
  * Note: This does not rename the system name (JMRI typically treats name as immutable).
+ *
  * @param {string} systemName
  * @param {{ userName?:string, comment?:string, inverted?:boolean, state?:number }} fields
+ * @returns {Promise<NormalisedTurnout | null>} Updated normalised record.
  */
 export async function updateTurnout(systemName, fields) {
   const name = String(systemName || "").trim();
   if (!name) throw new Error("System Name is required");
+
   const payload = {
     name,
     ...(fields.userName != null ? { userName: fields.userName } : {}),
@@ -170,17 +196,16 @@ export async function updateTurnout(systemName, fields) {
     ...(fields.inverted != null ? { inverted: !!fields.inverted } : {}),
     ...(fields.state != null ? { state: fields.state } : {}),
   };
-  const raw = await jmriJsonCalls(
-    "POST",
-    `/json/turnout/${encodeURIComponent(name)}`,
-    payload
-  );
+
+  const raw = await jmriJsonCalls("POST", `/json/turnout/${encodeURIComponent(name)}`, payload);
   return toTurnoutRecord(raw);
 }
 
 /**
  * Delete a turnout (JMRI: DELETE /json/turnout/:systemName).
+ *
  * @param {string} systemName
+ * @returns {Promise<void>}
  */
 export async function deleteTurnout(systemName) {
   const name = String(systemName || "").trim();
@@ -196,7 +221,15 @@ export async function deleteTurnout(systemName) {
  *   - comment/inverted copied through
  *   - optional state applied via updateTurnout (same as single-create flow)
  *
- * Returns a summary { created: number[], failed: {address:number, message:string}[] }.
+ * @param {object} params
+ * @param {string} params.prefix
+ * @param {number|string} params.baseAddress
+ * @param {number|string} params.count
+ * @param {string} [params.baseUserName]
+ * @param {string} [params.comment]
+ * @param {boolean} [params.inverted]
+ * @param {number} [params.desiredStateRaw]
+ * @returns {Promise<{ created: number[], failed: Array<{address:number, message:string}> }>}
  */
 export async function batchCreateTurnouts({
   prefix,
@@ -207,11 +240,13 @@ export async function batchCreateTurnouts({
   inverted,
   desiredStateRaw,
 }) {
+  /** @type {number[]} */
   const created = [];
+  /** @type {Array<{address:number, message:string}>} */
   const failed = [];
 
   const base = Number(baseAddress);
-  const turnoutCount = Math.max(1, Number(count) | 0);
+  const turnoutCount = Math.max(1, Math.trunc(Number(count) || 0));
 
   for (let index = 0; index < turnoutCount; index++) {
     const address = base + index;

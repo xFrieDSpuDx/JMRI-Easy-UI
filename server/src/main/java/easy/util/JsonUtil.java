@@ -1,4 +1,4 @@
-package dev.yourname.jmri.easy.util;
+package easy.util;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;

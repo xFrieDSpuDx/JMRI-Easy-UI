@@ -12,7 +12,6 @@ import { getPrefixes } from "../../services/prefixes.js";
 import { showToast } from "../../ui/toast.js";
 import { resetDialogTabsAndScroll } from "../../ui/tabs.js";
 import { query, getInputValue, isElementChecked } from "../../ui/dom.js";
-import { activeConnection } from "../../services/cachedValues.js";
 import {
   DCC_RULES_REQUIRED,
   getDccAddressError,
@@ -22,6 +21,8 @@ import {
 /* ============================================================================
  * Selectors & Constants
  * ========================================================================== */
+
+/** Dialog element selectors. */
 const TURNOUT_DIALOG_SELECTORS = {
   dialog: "#turnoutDialog",
   form: "#turnoutForm",
@@ -40,29 +41,39 @@ const TURNOUT_DIALOG_SELECTORS = {
   count: "#toCount",
 };
 
-const MESSAGE_SAVING = "Saving…";
+/** Busy message shown while saving. */
+const savingMessage = "Saving…";
 
+/* State */
 let onSavedCallback = null;
-let dialogMode = "edit"; // "create" | "edit" | "sequential"
+/** @type {"create"|"edit"|"sequential"} */
+let dialogMode = "edit"; // default
+/** @type {string[]} */
 let knownSystemNamePrefixes = []; // e.g., ["LT","IT","MT"]
+/** @type {null | (() => void)} */
 let detachAddressValidation = null;
 
 // Stored handlers so we can remove before re-adding
-let boundSaveHandler = null;
-let boundCancelHandler = null;
-let boundDeleteHandler = null;
+/** @type {null | (() => void)} */ let boundSaveHandler = null;
+/** @type {null | (() => void)} */ let boundCancelHandler = null;
+/** @type {null | (() => void)} */ let boundDeleteHandler = null;
 
 /* ============================================================================
  * Prefix Helpers
  * ========================================================================== */
-/** Fetch prefixes and populate the <select>. Also cache the known prefixes. */
+
+/**
+ * Fetch prefixes and populate the <select>. Also cache the known prefixes.
+ *
+ * @returns {Promise<Array<{systemPrefix:string, systemNamePrefix:string, connectionName?:string}>>}
+ */
 async function populatePrefixSelect() {
   const prefixSelect = query(TURNOUT_DIALOG_SELECTORS.prefix);
   if (!prefixSelect) return [];
 
   const prefixList = await getPrefixes("turnout"); // [{systemPrefix, systemNamePrefix, connectionName}, ...]
   knownSystemNamePrefixes = Array.isArray(prefixList)
-    ? prefixList.map((p) => p.systemNamePrefix).filter(Boolean)
+    ? prefixList.map((prefixObject) => prefixObject.systemNamePrefix).filter(Boolean)
     : [];
 
   prefixSelect.innerHTML = "";
@@ -72,17 +83,18 @@ async function populatePrefixSelect() {
     option.textContent = connection.connectionName
       ? `${connection.systemNamePrefix} — ${connection.connectionName}`
       : connection.systemNamePrefix;
-
-    if (connection.systemPrefix === activeConnection.systemPrefix) {
-      option.selected = true;
-    }
-
     prefixSelect.appendChild(option);
   }
+
   return prefixList;
 }
 
-/** Which known prefix does the given system name start with (if any)? */
+/**
+ * Which known prefix does the given system name start with (if any)?
+ *
+ * @param {string} systemName
+ * @returns {string|null}
+ */
 function detectSystemPrefix(systemName) {
   if (!systemName) return null;
   for (const prefix of knownSystemNamePrefixes) {
@@ -91,7 +103,13 @@ function detectSystemPrefix(systemName) {
   return null;
 }
 
-/** Extract the numeric DCC address from a full system name. */
+/**
+ * Extract the numeric DCC address from a full system name.
+ *
+ * @param {string} systemName
+ * @param {string|null} detectedPrefix
+ * @returns {string}
+ */
 function extractDigitsFromSystemName(systemName, detectedPrefix) {
   const source = (systemName || "").trim();
   if (!source) return "";
@@ -111,6 +129,14 @@ function extractDigitsFromSystemName(systemName, detectedPrefix) {
 /* ============================================================================
  * Form I/O
  * ========================================================================== */
+
+/**
+ * Populate the form inputs from a record.
+ *
+ * @param {object|null} record
+ * @param {string|null} detectedPrefixForEdit
+ * @returns {void}
+ */
 function setFormValuesFromRecord(record, detectedPrefixForEdit = null) {
   const systemInput = query(TURNOUT_DIALOG_SELECTORS.system);
   const userInput = query(TURNOUT_DIALOG_SELECTORS.user);
@@ -118,31 +144,38 @@ function setFormValuesFromRecord(record, detectedPrefixForEdit = null) {
   const invertedInput = query(TURNOUT_DIALOG_SELECTORS.inverted);
   const stateSelect = query(TURNOUT_DIALOG_SELECTORS.state);
 
-  const fullSystemName =
-    record?.name || record?.address || record?.data?.name || "";
+  const fullSystemName = record?.name || record?.address || record?.data?.name || "";
 
-  systemInput.value = extractDigitsFromSystemName(
-    fullSystemName,
-    detectedPrefixForEdit
-  );
+  systemInput.value = extractDigitsFromSystemName(fullSystemName, detectedPrefixForEdit);
   userInput.value = record?.userName || record?.title || "";
   commentInput.value = record?.comment || "";
   invertedInput.checked = !!record?.inverted;
   stateSelect.value = ""; // unchanged by default
 }
 
+/**
+ * Collect form values from the dialog inputs.
+ *
+ * @returns {{ dccDigits:string, selectedPrefix:string, userName:string, comment:string, inverted:boolean, stateChoice:string }}
+ */
 function collectFormValues() {
   return {
-    dccDigits: getInputValue(query(TURNOUT_DIALOG_SELECTORS.system)),
-    selectedPrefix: getInputValue(query(TURNOUT_DIALOG_SELECTORS.prefix)),
-    userName: getInputValue(query(TURNOUT_DIALOG_SELECTORS.user)),
-    comment: getInputValue(query(TURNOUT_DIALOG_SELECTORS.comment)),
-    inverted: isElementChecked(query(TURNOUT_DIALOG_SELECTORS.inverted)),
-    stateChoice: getInputValue(query(TURNOUT_DIALOG_SELECTORS.state)), // "", "closed", "thrown"
+    dccDigits: getInputValue(TURNOUT_DIALOG_SELECTORS.system),
+    selectedPrefix: getInputValue(TURNOUT_DIALOG_SELECTORS.prefix),
+    userName: getInputValue(TURNOUT_DIALOG_SELECTORS.user),
+    comment: getInputValue(TURNOUT_DIALOG_SELECTORS.comment),
+    inverted: isElementChecked(TURNOUT_DIALOG_SELECTORS.inverted),
+    stateChoice: getInputValue(TURNOUT_DIALOG_SELECTORS.state), // "", "closed", "thrown"
   };
 }
 
-/** Map desired logical state → JMRI raw value, honouring inversion. */
+/**
+ * Map desired logical state → JMRI raw value, honouring inversion.
+ *
+ * @param {string} stateChoice - "", "closed", or "thrown".
+ * @param {boolean} inverted
+ * @returns {number|null} JMRI raw state or null if no choice.
+ */
 function convertStateToRaw(stateChoice, inverted) {
   if (!stateChoice) return null;
   const wantsThrown = stateChoice === "thrown";
@@ -153,13 +186,23 @@ function convertStateToRaw(stateChoice, inverted) {
 /* ============================================================================
  * Sequential Helpers
  * ========================================================================== */
+
+/**
+ * Read and clamp the sequential count (1..64).
+ *
+ * @returns {number}
+ */
 function getSequentialCount() {
   const countValue = Number(query(TURNOUT_DIALOG_SELECTORS.count)?.value ?? 1);
-  return Number.isFinite(countValue) && countValue > 0
-    ? Math.min(countValue, 64)
-    : 1;
+  return Number.isFinite(countValue) && countValue > 0 ? Math.min(countValue, 64) : 1;
 }
 
+/**
+ * Show/hide the sequential row in the form.
+ *
+ * @param {boolean} visible
+ * @returns {void}
+ */
 function toggleSequentialRow(visible) {
   const row = query(TURNOUT_DIALOG_SELECTORS.countRow);
   if (row) row.hidden = !visible;
@@ -168,27 +211,55 @@ function toggleSequentialRow(visible) {
 /* ============================================================================
  * Dialog Chrome
  * ========================================================================== */
+
+/**
+ * Set the dialog title text.
+ *
+ * @param {string} text
+ * @returns {void}
+ */
 function setDialogTitle(text) {
   const titleElement = query(TURNOUT_DIALOG_SELECTORS.title);
   if (titleElement) titleElement.textContent = text;
 }
+
+/**
+ * Open the dialog and reset tabs/scroll.
+ *
+ * @returns {void}
+ */
 function openDialog() {
   const dialogElement = query(TURNOUT_DIALOG_SELECTORS.dialog);
   if (dialogElement && !dialogElement.open) dialogElement.showModal();
   // Reset tab and scroll
   resetDialogTabsAndScroll(dialogElement);
 }
+
+/**
+ * Close the dialog.
+ *
+ * @returns {void}
+ */
 export function closeDialog() {
   const dialogElement = query(TURNOUT_DIALOG_SELECTORS.dialog);
   if (!dialogElement) return;
   try {
     if (dialogElement.open) dialogElement.close();
-  } catch {}
+  } catch (error) {
+    console.warn(error);
+  }
 }
 
 /* ============================================================================
  * Save Flow
  * ========================================================================== */
+
+/**
+ * Handle Save click for create/edit/sequential modes.
+ *
+ * @param {object|null} existingRecord
+ * @returns {Promise<void>}
+ */
 async function handleSave(existingRecord) {
   const form = collectFormValues();
   const isCreateMode = ["create", "sequential"].includes(dialogMode);
@@ -200,11 +271,7 @@ async function handleSave(existingRecord) {
     return;
   }
 
-  const finalSystemName = computeFinalSystemName(
-    existingRecord,
-    form,
-    isCreateMode
-  );
+  const finalSystemName = computeFinalSystemName(existingRecord, form, isCreateMode);
   const desiredStateRaw = computeInitialStateRaw(form);
   const sequentialCount = isCreateMode ? getSequentialCount() : 1;
 
@@ -214,23 +281,16 @@ async function handleSave(existingRecord) {
     await busyWhile(async () => {
       if (isCreateMode && sequentialCount > 1) {
         // Batch create sequential addresses
-        toastMessage = await createSequentialTurnouts(
-          form,
-          sequentialCount,
-          desiredStateRaw
-        );
+        toastMessage = await createSequentialTurnouts(form, sequentialCount, desiredStateRaw);
       } else if (isCreateMode) {
         // Single create
         await createSingleTurnout(finalSystemName, form, desiredStateRaw);
       } else {
         // Edit existing
-        const targetSystemName = getTargetSystemName(
-          existingRecord,
-          finalSystemName
-        );
+        const targetSystemName = getTargetSystemName(existingRecord, finalSystemName);
         await updateExistingTurnout(targetSystemName, form, desiredStateRaw);
       }
-    }, MESSAGE_SAVING);
+    }, savingMessage);
 
     closeDialog();
     showToast?.(toastMessage);
@@ -244,7 +304,12 @@ async function handleSave(existingRecord) {
  * Save helpers
  * ========================================================================== */
 
-/** Validate inputs used on create. Returns error message string or null. */
+/**
+ * Validate inputs used on create. Returns error message string or null.
+ *
+ * @param {{ dccDigits:string, selectedPrefix:string }} form
+ * @returns {string|null}
+ */
 function validateBeforeCreate(form) {
   const addrErr = getDccAddressError(form.dccDigits, DCC_RULES_REQUIRED);
   if (addrErr) return addrErr;
@@ -252,7 +317,14 @@ function validateBeforeCreate(form) {
   return null;
 }
 
-/** Build the final system name for create; or use the existing record on edit. */
+/**
+ * Build the final system name for create; or use the existing record on edit.
+ *
+ * @param {any} existingRecord
+ * @param {{ dccDigits:string, selectedPrefix:string }} form
+ * @param {boolean} isCreateMode
+ * @returns {string}
+ */
 function computeFinalSystemName(existingRecord, form, isCreateMode) {
   if (isCreateMode) {
     return `${form.selectedPrefix || ""}${form.dccDigits || ""}`.trim();
@@ -265,12 +337,23 @@ function computeFinalSystemName(existingRecord, form, isCreateMode) {
   ).trim();
 }
 
-/** Convert UI state choice to raw, honouring inversion. */
+/**
+ * Convert UI state choice to raw, honouring inversion.
+ *
+ * @param {{ stateChoice:string, inverted:boolean }} form
+ * @returns {number|null}
+ */
 function computeInitialStateRaw(form) {
   return convertStateToRaw(form.stateChoice, form.inverted);
 }
 
-/** When editing, find the correct system name target. */
+/**
+ * When editing, find the correct system name target.
+ *
+ * @param {any} existingRecord
+ * @param {string} fallbackSystemName
+ * @returns {string}
+ */
 function getTargetSystemName(existingRecord, fallbackSystemName) {
   return (
     existingRecord?.name ||
@@ -280,9 +363,15 @@ function getTargetSystemName(existingRecord, fallbackSystemName) {
   );
 }
 
-/** Friendly-name rule for batch:
+/**
+ * Friendly-name rule for batch:
  * - no base name → just the DCC address
  * - with base name → first = base only, subsequent = "base DCC"
+ *
+ * @param {string} baseUserName
+ * @param {number} dccAddress
+ * @param {boolean} isFirst
+ * @returns {string}
  */
 function friendlyNameForBatch(baseUserName, dccAddress, isFirst) {
   const name = (baseUserName || "").trim();
@@ -290,7 +379,14 @@ function friendlyNameForBatch(baseUserName, dccAddress, isFirst) {
   return isFirst ? name : `${name} ${dccAddress}`;
 }
 
-/** Create a single turnout, applying the “no name → use DCC address” rule. */
+/**
+ * Create a single turnout, applying the “no name → use DCC address” rule.
+ *
+ * @param {string} systemName
+ * @param {{ dccDigits:string, userName:string, comment:string, inverted:boolean }} form
+ * @param {number|null} desiredStateRaw
+ * @returns {Promise<void>}
+ */
 async function createSingleTurnout(systemName, form, desiredStateRaw) {
   // If no friendly name provided, use the DCC address as the userName
   const userName = (form.userName || "").trim() || String(form.dccDigits || "");
@@ -307,7 +403,14 @@ async function createSingleTurnout(systemName, form, desiredStateRaw) {
   }
 }
 
-/** Update an existing turnout; state is optional. */
+/**
+ * Update an existing turnout; state is optional.
+ *
+ * @param {string} systemName
+ * @param {{ userName:string, comment:string, inverted:boolean }} form
+ * @param {number|null} desiredStateRaw
+ * @returns {Promise<void>}
+ */
 async function updateExistingTurnout(systemName, form, desiredStateRaw) {
   const updateFields = {
     userName: form.userName,
@@ -319,11 +422,17 @@ async function updateExistingTurnout(systemName, form, desiredStateRaw) {
   await updateTurnout(systemName, updateFields);
 }
 
-/** Batch-create N turnouts with sequential DCC addresses. Returns a toast string. */
+/**
+ * Batch-create N turnouts with sequential DCC addresses. Returns a toast string.
+ *
+ * @param {{ userName:string, comment:string, inverted:boolean, dccDigits:string, selectedPrefix:string }} form
+ * @param {number} count
+ * @param {number|null} desiredStateRaw
+ * @returns {Promise<string>} Summary message for the toast.
+ */
 async function createSequentialTurnouts(form, count, desiredStateRaw) {
   const baseAddress = Number(form.dccDigits);
-  if (!Number.isFinite(baseAddress))
-    throw new Error("Invalid base DCC address");
+  if (!Number.isFinite(baseAddress)) throw new Error("Invalid base DCC address");
   const prefix = form.selectedPrefix || "";
   if (!prefix) throw new Error("Select a connection/prefix");
 
@@ -370,19 +479,20 @@ async function createSequentialTurnouts(form, count, desiredStateRaw) {
 /* ============================================================================
  * Public API
  * ========================================================================== */
+
 /**
  * Open the Turnout dialog.
- * @param {"create"|"edit"} openMode
+ *
+ * @param {"create"|"edit"|"sequential"} openMode
  * @param {object|null} record
- * @param {Function} onSaved
+ * @param {() => void} onSaved
+ * @returns {Promise<void>}
  */
 export async function openTurnoutDialog(openMode, record, onSaved) {
   dialogMode = openMode;
   onSavedCallback = onSaved || null;
 
-  setDialogTitle(
-    ["create", "sequential"].includes(openMode) ? "Add Turnout" : "Edit Turnout"
-  );
+  setDialogTitle(["create", "sequential"].includes(openMode) ? "Add Turnout" : "Edit Turnout");
 
   toggleSequentialRow(openMode === "sequential");
   const countInput = query(TURNOUT_DIALOG_SELECTORS.count);
@@ -394,8 +504,7 @@ export async function openTurnoutDialog(openMode, record, onSaved) {
     const prefixSelect = query(TURNOUT_DIALOG_SELECTORS.prefix);
 
     if (openMode === "edit") {
-      const fullSystemName =
-        record?.name || record?.address || record?.data?.name || "";
+      const fullSystemName = record?.name || record?.address || record?.data?.name || "";
       const detectedPrefix = detectSystemPrefix(fullSystemName);
       if (prefixSelect && detectedPrefix) prefixSelect.value = detectedPrefix;
 
@@ -403,11 +512,7 @@ export async function openTurnoutDialog(openMode, record, onSaved) {
 
       setFormValuesFromRecord(record, detectedPrefix);
     } else {
-      if (
-        prefixSelect &&
-        prefixSelect.options.length > 0 &&
-        !prefixSelect.value
-      ) {
+      if (prefixSelect && prefixSelect.options.length > 0 && !prefixSelect.value) {
         prefixSelect.value = prefixSelect.options[0].value;
       }
       query(TURNOUT_DIALOG_SELECTORS.delete).hidden = true;
@@ -437,44 +542,24 @@ export async function openTurnoutDialog(openMode, record, onSaved) {
   openDialog();
 
   // Rebind actions idempotently
-  query(TURNOUT_DIALOG_SELECTORS.save)?.removeEventListener(
-    "click",
-    boundSaveHandler
-  );
-  query(TURNOUT_DIALOG_SELECTORS.delete)?.removeEventListener(
-    "click",
-    boundDeleteHandler
-  );
-  query(TURNOUT_DIALOG_SELECTORS.cancel)?.removeEventListener(
-    "click",
-    boundCancelHandler
-  );
-  query(TURNOUT_DIALOG_SELECTORS.close)?.removeEventListener(
-    "click",
-    boundCancelHandler
-  );
+  query(TURNOUT_DIALOG_SELECTORS.save)?.removeEventListener("click", boundSaveHandler);
+  query(TURNOUT_DIALOG_SELECTORS.delete)?.removeEventListener("click", boundDeleteHandler);
+  query(TURNOUT_DIALOG_SELECTORS.cancel)?.removeEventListener("click", boundCancelHandler);
+  query(TURNOUT_DIALOG_SELECTORS.close)?.removeEventListener("click", boundCancelHandler);
 
   boundSaveHandler = () => handleSave(record);
   boundDeleteHandler = () => onDeleteTurnout(record, true);
   boundCancelHandler = () => closeDialog();
 
-  query(TURNOUT_DIALOG_SELECTORS.delete)?.addEventListener(
-    "click",
-    boundDeleteHandler
-  );
-  query(TURNOUT_DIALOG_SELECTORS.save)?.addEventListener(
-    "click",
-    boundSaveHandler
-  );
-  query(TURNOUT_DIALOG_SELECTORS.cancel)?.addEventListener(
-    "click",
-    boundCancelHandler
-  );
-  query(TURNOUT_DIALOG_SELECTORS.close)?.addEventListener(
-    "click",
-    boundCancelHandler
-  );
+  query(TURNOUT_DIALOG_SELECTORS.delete)?.addEventListener("click", boundDeleteHandler);
+  query(TURNOUT_DIALOG_SELECTORS.save)?.addEventListener("click", boundSaveHandler);
+  query(TURNOUT_DIALOG_SELECTORS.cancel)?.addEventListener("click", boundCancelHandler);
+  query(TURNOUT_DIALOG_SELECTORS.close)?.addEventListener("click", boundCancelHandler);
 }
 
-/** Optional init hook (reserved for future enhancements). */
+/**
+ * Optional init hook (reserved for future enhancements).
+ *
+ * @returns {void}
+ */
 export function initTurnoutDialog() {}

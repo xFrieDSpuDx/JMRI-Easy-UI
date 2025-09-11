@@ -2,8 +2,8 @@
 
 // Create a single global instance shared across all imports.
 (function initGlobalBusyOverlay() {
-  const KEY = "__APP_BUSY_OVERLAY__";
-  if (window[KEY]) return;
+  const busyKey = "__APP_BUSY_OVERLAY__";
+  if (window[busyKey]) return;
 
   /** Internal singleton state + helpers */
   const overlay = {
@@ -14,12 +14,19 @@
     labelEl: null, // <div id="appBusyLabel">
     watchdogTimer: null,
 
-    /** Feature detection */
+    /**
+     * Feature detection for the HTML <dialog> element.
+     * @returns {boolean}
+     */
     supportsDialog() {
       return typeof HTMLDialogElement !== "undefined";
     },
 
-    /** Ensure overlay DOM exists (lazy-created on first use) */
+    /**
+     * Ensure overlay DOM exists (lazy-created on first use).
+     * Creates either a <dialog> (preferred) or a fallback <div>.
+     * @returns {void}
+     */
     ensureOverlay() {
       if (this.dialogEl || this.fallbackEl) return;
 
@@ -28,7 +35,7 @@
         dlg.id = "appBusy";
         dlg.setAttribute("aria-live", "polite");
         dlg.setAttribute("aria-busy", "true");
-        dlg.addEventListener("cancel", (e) => e.preventDefault()); // prevent ESC close
+        dlg.addEventListener("cancel", (event) => event.preventDefault()); // prevent ESC close
 
         const panel = document.createElement("div");
         panel.className = "panel";
@@ -58,7 +65,11 @@
       }
     },
 
-    /** Open/Show the overlay (top-layer if <dialog> is supported) */
+    /**
+     * Open/Show the overlay (top-layer if <dialog> is supported).
+     * @param {string} [message] - Optional message to display.
+     * @returns {void}
+     */
     openOverlay(message) {
       this.ensureOverlay();
 
@@ -77,7 +88,10 @@
       }
     },
 
-    /** Close/Hide the overlay (defensive across ticks) */
+    /**
+     * Close/Hide the overlay (defensive across ticks).
+     * @returns {void}
+     */
     closeOverlay() {
       const root = document.getElementById("appBusy");
       if (root) root.style.display = "none";
@@ -85,7 +99,9 @@
       if (this.dialogEl) {
         try {
           if (this.dialogEl.open) this.dialogEl.close();
-        } catch (_) {}
+        } catch (error) {
+          console.warn(error);
+        }
         document.body.removeAttribute("aria-busy");
       }
       if (this.fallbackEl) {
@@ -94,7 +110,10 @@
       }
     },
 
-    /** Ensure close happens even if the frame is busy (microtask/RAF retries) */
+    /**
+     * Ensure close happens even if the frame is busy (microtask/RAF retries).
+     * @returns {void}
+     */
     scheduleCloseWatchdog() {
       if (this.watchdogTimer) return;
       this.watchdogTimer = setTimeout(() => {
@@ -109,38 +128,54 @@
   };
 
   // Expose singleton on window for all modules to share.
-  window[KEY] = overlay;
+  window[busyKey] = overlay;
 })();
 
 /* ---------- Public API (shared singleton) ---------- */
 
-const BUSY = window.__APP_BUSY_OVERLAY__;
+const busyOverlay = window["__APP_BUSY_OVERLAY__"];
 
-/** Show the global busy overlay. Re-entrant and cross-module safe. */
+/**
+ * Show the global busy overlay. Re-entrant and cross-module safe.
+ *
+ * @param {string} [message="Working…"] - Message to display under the spinner.
+ * @returns {void}
+ */
 export function showBusy(message = "Working…") {
-  BUSY.count += 1;
-  if (BUSY.count === 1) {
-    BUSY.openOverlay(message);
-  } else if (BUSY.labelEl) {
-    BUSY.labelEl.textContent = message;
+  busyOverlay.count += 1;
+  if (busyOverlay.count === 1) {
+    busyOverlay.openOverlay(message);
+  } else if (busyOverlay.labelEl) {
+    busyOverlay.labelEl.textContent = message;
   }
 }
 
-/** Hide the overlay when no more busy operations remain. */
+/**
+ * Hide the overlay when no more busy operations remain.
+ *
+ * @returns {void}
+ */
 export function hideBusy() {
-  if (BUSY.count > 0) BUSY.count -= 1;
-  if (BUSY.count < 0) BUSY.count = 0;
+  if (busyOverlay.count > 0) busyOverlay.count -= 1;
+  if (busyOverlay.count < 0) busyOverlay.count = 0;
 
   // Keep the spinner hidden immediately, regardless of dialog timing.
   const root = document.getElementById("appBusy");
   if (root) root.style.display = "none";
 
-  if (BUSY.count === 0) {
-    BUSY.scheduleCloseWatchdog();
+  if (busyOverlay.count === 0) {
+    busyOverlay.scheduleCloseWatchdog();
   }
 }
 
-/** Run an async task while the overlay is visible. Always hides afterwards. */
+/**
+ * Run an async task while the overlay is visible. Always hides afterwards.
+ *
+ * @template T
+ * @param {() => Promise<T>} task - Async function to execute.
+ * @param {string} [message="Working…"] - Message to display while busy.
+ * @returns {Promise<T>} The resolved value of the task.
+ */
 export async function busyWhile(task, message = "Working…") {
   showBusy(message);
   try {
@@ -150,8 +185,12 @@ export async function busyWhile(task, message = "Working…") {
   }
 }
 
-/** Emergency helper: immediately clear any visible overlay. */
+/**
+ * Emergency helper: immediately clear any visible overlay.
+ *
+ * @returns {void}
+ */
 export function forceClearBusy() {
-  BUSY.count = 0;
-  BUSY.closeOverlay();
+  busyOverlay.count = 0;
+  busyOverlay.closeOverlay();
 }

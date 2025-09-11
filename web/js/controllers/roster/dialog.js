@@ -15,18 +15,20 @@ import {
 } from "./dialog/infoTab.js";
 import { onClickReadDccChip } from "./dialog/decoderSelect.js";
 import { loadFunctionsTab } from "./dialog/functionsTab.js";
-import {
-  DCC_RULES_REQUIRED,
-  setupLiveDccValidation,
-} from "../../validation/dcc.js";
+import { DCC_RULES_REQUIRED, setupLiveDccValidation } from "../../validation/dcc.js";
 
 // Validation global
+/** @type {null | (() => void)} */
 let detachAddressValidation = null;
 
 /* ========================================================================== */
 /* Selectors                                                                  */
 /* ========================================================================== */
 
+/**
+ * Dialog query selectors used across tabs and actions.
+ * (Exported name preserved for compatibility with existing imports.)
+ */
 export const LOCO_DIALOG_SELECTORS = {
   dialog: "#locoDialog",
   title: "#locoDialogTitle",
@@ -40,7 +42,6 @@ export const LOCO_DIALOG_SELECTORS = {
   owner: "#locoOwner",
   file: "#locoFile",
   imageUrl: "#locoImageUrl",
-  imageEl: "#modalRosterImage",
   decoderSelect: "#locoDecoderSelect",
 
   // Image pickers (present in your HTML)
@@ -62,19 +63,36 @@ export const LOCO_DIALOG_SELECTORS = {
 /* Dialog chrome                                                              */
 /* ========================================================================== */
 
+/**
+ * Set the dialog title based on mode.
+ *
+ * @param {"create"|"edit"} mode - Dialog mode.
+ * @returns {void}
+ */
 function setDialogTitle(mode) {
   const titleEl = query(LOCO_DIALOG_SELECTORS.title);
   if (!titleEl) return;
-  titleEl.textContent =
-    mode === "create" ? "Add Locomotive" : "Edit Locomotive";
+  titleEl.textContent = mode === "create" ? "Add Locomotive" : "Edit Locomotive";
 }
 
+/**
+ * Make the ID input read-only in edit mode.
+ *
+ * @param {"create"|"edit"} mode - Dialog mode.
+ * @returns {void}
+ */
 function applyIdReadOnlyByMode(mode) {
   const idInput = query(LOCO_DIALOG_SELECTORS.id);
   if (!idInput) return;
   idInput.toggleAttribute("readonly", mode === "edit");
 }
 
+/**
+ * Replace a button with a cloned node to reliably remove old listeners.
+ *
+ * @param {string} selector - CSS selector for the button.
+ * @returns {HTMLElement|null} The fresh button element or null if not found.
+ */
 function resetButton(selector) {
   const button = query(selector);
   if (!button) return null;
@@ -87,18 +105,30 @@ function resetButton(selector) {
 /* Open / Close                                                               */
 /* ========================================================================== */
 
+/**
+ * Open a <dialog> element if not already open.
+ *
+ * @param {HTMLDialogElement} dialogElement - The dialog element.
+ * @returns {void}
+ */
 function showDialog(dialogElement) {
   if (dialogElement && !dialogElement.open) dialogElement.showModal();
 }
 
+/**
+ * Close the locomotive dialog and clear transient image state.
+ *
+ * @returns {void}
+ */
 export function closeDialog() {
   const dialogElement = query(LOCO_DIALOG_SELECTORS.dialog);
   try {
     if (dialogElement?.open) dialogElement.close();
-  } catch {
+  } catch (error) {
+    console.warn(error);
   }
 
-  clearImageMemory()
+  clearImageMemory();
 }
 
 /* ========================================================================== */
@@ -108,11 +138,13 @@ export function closeDialog() {
 /**
  * Open the Locomotive dialog.
  *
- * @param {"create"|"edit"} mode
- * @param {object|null} record - Normalised roster record (or null for create).
+ * @param {"create"|"edit"} mode - Dialog mode.
+ * @param {object|null} record - Normalized roster record (or null for create).
  * @param {() => void} onSaved - Called after a successful save/delete.
+ * @param {boolean} [prefill=false] - If true, keep existing image URL as-is.
+ * @returns {Promise<void>} Resolves after the dialog is fully initialized.
  */
-export async function openLocoDialog(mode, record, onSaved, prefill) {
+export async function openLocoDialog(mode, record, onSaved, prefill = false) {
   const dialogElement = query(LOCO_DIALOG_SELECTORS.dialog);
   if (!dialogElement) return;
 
@@ -140,7 +172,7 @@ export async function openLocoDialog(mode, record, onSaved, prefill) {
   const deleteBtn = resetButton(LOCO_DIALOG_SELECTORS.delete);
   const readBtn = resetButton(LOCO_DIALOG_SELECTORS.readDcc);
   const writeBtn = resetButton(LOCO_DIALOG_SELECTORS.writeDcc);
-  const readDccChip = resetButton(LOCO_DIALOG_SELECTORS.readDccChip);
+  const readDccChipBtn = resetButton(LOCO_DIALOG_SELECTORS.readDccChip);
 
   // Wire buttons
   saveBtn?.addEventListener("click", () => handleSave(onSaved));
@@ -150,11 +182,16 @@ export async function openLocoDialog(mode, record, onSaved, prefill) {
   deleteBtn?.addEventListener("click", () => handleDelete(onSaved));
   readBtn?.addEventListener("click", onClickReadDcc);
   writeBtn?.addEventListener("click", onClickWriteDcc);
-  readDccChip?.addEventListener("click", () => onClickReadDccChip(query(LOCO_DIALOG_SELECTORS.decoderSelect)));
+  readDccChipBtn?.addEventListener("click", () =>
+    onClickReadDccChip(query(LOCO_DIALOG_SELECTORS.decoderSelect))
+  );
 
   // Visibility of buttons on load
-  if (mode === "edit") deleteBtn.hidden = false;
-  else deleteBtn.hidden = true;
+  if (mode === "edit") {
+    deleteBtn.hidden = false;
+  } else {
+    deleteBtn.hidden = true;
+  }
 
   // Live validation
   const addressInput = query(LOCO_DIALOG_SELECTORS.dcc);
@@ -167,10 +204,17 @@ export async function openLocoDialog(mode, record, onSaved, prefill) {
     errorId: "rosterSystemNameError",
     disableSaveWhenInvalid: true,
   });
+
   // Load functions tab
-  try { await loadFunctionsTab(record); } catch {}
+  try {
+    await loadFunctionsTab(record);
+  } catch (error) {
+    console.warn(error);
+  }
+
   // Open
   showDialog(dialogElement);
+
   // Reset tab and scroll
   resetDialogTabsAndScroll(dialogElement);
 }

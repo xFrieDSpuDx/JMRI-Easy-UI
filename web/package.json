@@ -1,0 +1,38 @@
+{
+  "name": "jmri-easy-ui-web",
+  "description": "**Access and control JMRI from an easy to use UI**   *Designed for use with JMRI to make the creation and management of projects easier.*",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/xFrieDSpuDx/jmri-easy-ui.git" },
+  "homepage": "https://github.com/xFrieDSpuDx/jmri-easy-ui",
+  "bugs": { "url": "https://github.com/xFrieDSpuDx/jmri-easy-ui/issues" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings=0",
+    "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
+    "format": "prettier . --write",
+    "build": "vite build",
+    "preview": "vite preview --strictPort --port 5173",
+    "deploy": "node ./scripts/deploy.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^55.3.0",
+    "eslint-plugin-n": "^17.21.3",
+    "eslint-plugin-promise": "^7.2.1",
+    "eslint-plugin-unused-imports": "^4.2.0",
+    "execa": "^9.6.0",
+    "globals": "^16.4.0",
+    "node-html-parser": "^7.0.1",
+    "postcss": "^8.5.6",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.0"
+  }
+}

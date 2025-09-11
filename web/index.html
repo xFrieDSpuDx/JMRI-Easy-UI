@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -37,15 +37,9 @@
           <div id="railroadName" class="railroad-name">My Railroad</div>
         </div>
         <nav class="drawer-nav">
-          <button id="navRoster" class="nav-btn active" data-view="roster">
-            Roster
-          </button>
-          <button id="navTurnouts" class="nav-btn" data-view="turnouts">
-            Turnouts
-          </button>
-          <button id="navSettings" class="nav-btn" data-view="settings">
-            Settings
-          </button>
+          <button id="navRoster" class="nav-btn active" data-view="roster">Roster</button>
+          <button id="navTurnouts" class="nav-btn" data-view="turnouts">Turnouts</button>
+          <button id="navSettings" class="nav-btn" data-view="settings">Settings</button>
         </nav>
       </aside>
 
@@ -56,13 +50,7 @@
           <h1 class="title">Roster</h1>
           <div class="spacer"></div>
           <div class="split-add">
-            <button
-              id="addBtn"
-              class="btn btn-primary add-button"
-              type="button"
-            >
-              Add Loco
-            </button>
+            <button id="addBtn" class="btn btn-primary add-button" type="button">Add Loco</button>
 
             <div class="split-add__more">
               <button
@@ -75,13 +63,7 @@
                 title="More ways to add"
               >
                 <!-- chevron down -->
-                <svg
-                  class="chev"
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  aria-hidden="true"
-                >
+                <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                   <path
                     d="M7 10l5 5 5-5"
                     fill="none"
@@ -94,58 +76,30 @@
               </button>
 
               <div id="addLocoMenu" class="menu" role="menu" hidden>
-                <button
-                  class="menu-item"
-                  type="button"
-                  role="menuitem"
-                  data-action="manual"
-                >
+                <button class="menu-item" type="button" role="menuitem" data-action="manual">
                   Manual Add
                 </button>
-                <button
-                  class="menu-item"
-                  type="button"
-                  role="menuitem"
-                  data-action="copy"
-                >
+                <button class="menu-item" type="button" role="menuitem" data-action="copy">
                   Copy Existing
                 </button>
-                <button
-                  class="menu-item"
-                  type="button"
-                  role="menuitem"
-                  data-action="upload"
-                >
+                <button class="menu-item" type="button" role="menuitem" data-action="upload">
                   Upload XML
                 </button>
               </div>
             </div>
           </div>
         </header>
-        <section
-          id="rosterList"
-          class="panel-body main content"
-          aria-live="polite"
-        ></section>
+        <section id="rosterList" class="panel-body main content" aria-live="polite"></section>
       </section>
 
       <!-- Turnouts Panel -->
-      <section
-        id="panelTurnouts"
-        class="sectionContainer"
-        data-panel="turnouts"
-        hidden
-      >
+      <section id="panelTurnouts" class="sectionContainer" data-panel="turnouts" hidden>
         <header class="topbar">
           <button id="menuBtn" class="icon-btn">☰</button>
           <h1 class="title">Turnouts</h1>
           <div class="spacer"></div>
           <div class="split-add">
-            <button
-              id="turnoutsAddBtn"
-              class="btn btn-primary add-button"
-              type="button"
-            >
+            <button id="turnoutsAddBtn" class="btn btn-primary add-button" type="button">
               Add Turnout
             </button>
 
@@ -160,13 +114,7 @@
                 title="More ways to add"
               >
                 <!-- chevron down -->
-                <svg
-                  class="chev"
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  aria-hidden="true"
-                >
+                <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                   <path
                     d="M7 10l5 5 5-5"
                     fill="none"
@@ -179,31 +127,17 @@
               </button>
 
               <div id="addTurnoutMenu" class="menu" role="menu" hidden>
-                <button
-                  class="menu-item"
-                  type="button"
-                  role="menuitem"
-                  data-action="single"
-                >
+                <button class="menu-item" type="button" role="menuitem" data-action="single">
                   Add Single
                 </button>
-                <button
-                  class="menu-item"
-                  type="button"
-                  role="menuitem"
-                  data-action="sequential"
-                >
+                <button class="menu-item" type="button" role="menuitem" data-action="sequential">
                   Add Sequential
                 </button>
               </div>
             </div>
           </div>
         </header>
-        <section
-          id="turnoutsList"
-          class="panel-body main content"
-          aria-live="polite"
-        >
+        <section id="turnoutsList" class="panel-body main content" aria-live="polite">
           <div class="empty">
             <div class="empty-title">No turnouts yet</div>
             <div class="empty-subtitle">Add a turnout to get started.</div>
@@ -212,32 +146,18 @@
       </section>
 
       <!-- Settings Panel -->
-      <section
-        id="panelSettings"
-        class="sectionContainer"
-        data-panel="settings"
-        hidden
-      >
+      <section id="panelSettings" class="sectionContainer" data-panel="settings" hidden>
         <header class="topbar">
           <button id="menuBtn" class="icon-btn">☰</button>
           <h1 class="title">Settings</h1>
         </header>
-        <section
-          id="settingsList"
-          class="panel-body main content"
-          aria-live="polite"
-        >
+        <section id="settingsList" class="panel-body main content" aria-live="polite">
           <div class="grid">
             <label>
               JMRI Active Connection
               <div class="row row--dcc">
-                <select
-                  id="jmriConnectionSelect"
-                  aria-label="Active Connection"
-                >
-                  <option value="" selected>
-                    Select the connection to use...
-                  </option>
+                <select id="jmriConnectionSelect" aria-label="Active Connection">
+                  <option value="" selected>Select the connection to use...</option>
                 </select>
               </div>
             </label>
@@ -276,28 +196,16 @@
             </button>
           </div>
 
-          <button id="locoClose" type="button" class="icon-btn last-item">
-            ✕
-          </button>
+          <button id="locoClose" type="button" class="icon-btn last-item">✕</button>
         </header>
 
         <div class="modal-body">
           <!-- Info panel (overview) -->
-          <section
-            id="locoPanelInfo"
-            role="tabpanel"
-            aria-labelledby="locoTabInfo"
-            tabindex="0"
-          >
+          <section id="locoPanelInfo" role="tabpanel" aria-labelledby="locoTabInfo" tabindex="0">
             <div class="image-col">
               <div id="modalImageDrop" class="image-drop">
                 <img id="modalRosterImage" class="modal-roster-image" alt="" />
-                <input
-                  type="file"
-                  id="modalImageInput"
-                  accept="image/*"
-                  hidden
-                />
+                <input type="file" id="modalImageInput" accept="image/*" hidden />
                 <div class="image-hint">Tap or drop to add/replace image</div>
               </div>
             </div>
@@ -309,19 +217,9 @@
                 <label>
                   DCC Address
                   <div class="row row--dcc">
-                    <input
-                      id="locoDccAddress"
-                      type="text"
-                      inputmode="numeric"
-                    />
-                    <button type="button" id="locoReadAddress" class="btn">
-                      Read from Loco
-                    </button>
-                    <button
-                      type="button"
-                      id="locoWriteAddress"
-                      class="btn btn-primary"
-                    >
+                    <input id="locoDccAddress" type="text" inputmode="numeric" />
+                    <button type="button" id="locoReadAddress" class="btn">Read from Loco</button>
+                    <button type="button" id="locoWriteAddress" class="btn btn-primary">
                       Write to Loco
                     </button>
                   </div>
@@ -331,12 +229,7 @@
 
                 <label>
                   Number
-                  <input
-                    id="locoNumber"
-                    inputmode="numeric"
-                    maxlength="10"
-                    pattern="\\d{1,10}"
-                  />
+                  <input id="locoNumber" inputmode="numeric" maxlength="10" pattern="\\d{1,10}" />
                 </label>
 
                 <label>Model<input id="locoModel" /></label>
@@ -346,13 +239,9 @@
                   DCC Decoder
                   <div class="row row--dcc">
                     <select id="locoDecoderSelect" aria-label="Decoder">
-                      <option value="" selected>
-                        Read from Loco to find decoder...
-                      </option>
+                      <option value="" selected>Read from Loco to find decoder...</option>
                     </select>
-                    <button type="button" id="locoDecoderRead" class="btn">
-                      Read from Loco
-                    </button>
+                    <button type="button" id="locoDecoderRead" class="btn">Read from Loco</button>
                   </div>
                 </label>
 
@@ -381,9 +270,7 @@
         </div>
 
         <footer class="modal-foot">
-          <button type="button" id="locoDelete" hidden="" class="btn btn-warn">
-            Delete
-          </button>
+          <button type="button" id="locoDelete" hidden="" class="btn btn-warn">Delete</button>
           <div class="spacer"></div>
           <button type="button" id="locoCancel" class="btn">Cancel</button>
           <button type="button" id="locoSave" class="btn-primary">Save</button>
@@ -396,9 +283,7 @@
       <form method="dialog" class="modal-form" id="turnoutForm">
         <header class="modal-head">
           <strong id="turnoutDialogTitle">Edit Turnout</strong>
-          <button id="turnoutClose" type="button" class="icon-btn last-item">
-            ✕
-          </button>
+          <button id="turnoutClose" type="button" class="icon-btn last-item">✕</button>
         </header>
 
         <div class="modal-body">
@@ -456,24 +341,17 @@
         </div>
 
         <footer class="modal-foot">
-          <button
-            type="button"
-            id="turnoutDelete"
-            hidden=""
-            class="btn btn-warn"
-          >
-            Delete
-          </button>
+          <button type="button" id="turnoutDelete" hidden="" class="btn btn-warn">Delete</button>
           <div class="spacer"></div>
           <button type="button" id="turnoutCancel" class="btn">Cancel</button>
-          <button type="button" id="turnoutSave" class="btn-primary">
-            Save
-          </button>
+          <button type="button" id="turnoutSave" class="btn-primary">Save</button>
         </footer>
       </form>
     </dialog>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="toastLayer" aria-hidden="true">
+      <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    </dialog>
     <script type="module" src="./js/main.js"></script>
   </body>
 </html>
