@@ -278,20 +278,20 @@ java -Deasy.web.root="/home/pi/JMRI/jmri-easy-ui/web/dist" -jar JMRI.jar
 
 | Screen | Preview |
 |---|---|
-| Roster | ![Roster](docs/images/1.Roster.png) |
-| Roster Add | ![Roster Add](docs/images/2.Roster_Add_Options.png) |
-| Roster Add from Copy | ![Roster Add from Copy](docs/images/3.Roster_Add_From_Copy.png) |
-| Roster Edit 1/2 | ![Roster Edit 1/2](docs/images/4.Roster_Edit_1.png) |
-| Roster Edit 2/2 | ![Roster Edit 2/2](docs/images/5.Roster_Edit_2.png) |
-| Roster Functions Editor | ![Roster Functions Editor](docs/images/6.Roster_Edit_Functions.png) |
-| Turnouts | ![Turnouts](docs/images/7.Turnouts.png) |
-| Turnouts Add | ![Turnouts Add](docs/images/8.Turnouts_Add_Options.png) |
-| Turnouts Add Multiple | ![Turnouts Add Multiple](docs/images/9.Turnouts_Add_Multiple.png) |
-| Turnouts Edit | ![Turnouts Edit](docs/images/10.Turnouts_Edit.png) |
-| Drawer Panel | ![Drawer Panel](docs/images/11.Drawer_Panel.png) |
-| Roster Mobile | ![Roster Mobile](docs/images/12.Roster_Mobile.png) |
-| Turnouts Mobile | ![Turnouts Mobile](docs/images/13.Turnouts_Mobile.png) |
-| Drawer Mobile | ![Drawer Mobile](docs/images/14.Drawer_Mobile.png) |
+| Roster | <img src="docs/images/1.Roster.png" width="700" alt="Roster" /> |
+| Roster Add | <img src="docs/images/2.Roster_Add_Options.png" width="150" alt="Roster Add" /> |
+| Roster Add from Copy | <img src="docs/images/3.Roster_Add_From_Copy.png" width="700" alt="Roster Add from Copy" /> |
+| Roster Edit 1/2 | <img src="docs/images/4.Roster_Edit_1.png" width="700" alt="Roster Edit 1/2" /> |
+| Roster Edit 2/2 | <img src="docs/images/5.Roster_Edit_2.png" width="700" alt="Roster Edit 2/2" /> |
+| Roster Functions Editor | <img src="docs/images/6.Roster_Edit_Functions.png" width="700" alt="Roster Functions Editor" /> |
+| Turnouts | <img src="docs/images/7.Turnouts.png" width="700" alt="Turnout" /> |
+| Turnouts Add | <img src="docs/images/8.Turnouts_Add_Options.png" width="150" alt="Turnouts Add" /> |
+| Turnouts Add Multiple | <img src="docs/images/9.Turnouts_Add_Multiple.png" width="700" alt="Turnouts Add Multiple" /> |
+| Turnouts Edit | <img src="docs/images/10.Turnouts_Edit.png" width="700" alt="Turnouts Edit" /> |
+| Drawer Panel | <img src="docs/images/11.Drawer_Panel.png" width="700" alt="Drawer Panel" /> |
+| Roster Mobile | <img src="docs/images/12.Roster_Mobile.png" width="400" alt="Roster Mobile" /" width="700" alt="Roster" /> |
+| Turnouts Mobile | <img src="docs/images/13.Turnouts_Mobile.png" width="400" alt="Turnouts Mobile" /> |
+| Drawer Mobile | <img src="docs/images/14.Drawer_Mobile.png" width="400" alt="Drawer Mobile" /> |
 
 ## License
 
