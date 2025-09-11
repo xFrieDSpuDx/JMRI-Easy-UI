@@ -81,6 +81,18 @@ jmri-easy-ui/
 
 ---
 
+## Quick Start
+This repo includes a pre-build .jar file that is ready to be dropped into JMRIs lib folder.
+
+- Stop JMRI
+- Clone project into JMRI route folder
+  - You should now have JMRI/jmri-easy-ui
+- Copy jmri-easy-ui-server.jar from JMRI/jmri-easy-ui/server/dist into JMRI/lib
+- Start JMRI and the JMRI web server
+- open http://localhost:12080/easy
+
+---
+
 ## Setup & Build (Java)
 
 From `jmri-easy-ui/server`:

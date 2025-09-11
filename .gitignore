@@ -9,7 +9,6 @@ yarn.lock
 pnpm-lock.yaml
 
 # Builds
-dist/
 build/
 .vite/
 .build/
@@ -24,3 +23,5 @@ coverage/
 # Local env
 .env
 .env.*
+.DS_Store
+server/.DS_Store
