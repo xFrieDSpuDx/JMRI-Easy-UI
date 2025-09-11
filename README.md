@@ -11,6 +11,7 @@ A lightweight web UI and REST API for [JMRI](https://www.jmri.org/) that makes i
 - [Features](#features)
 - [Project Layout](#project-layout)
 - [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
 - [Build & Install](#build--install)
   - [Build the Java server](#build-the-java-server)
   - [Build the website](#build-the-website)
