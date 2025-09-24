@@ -724,19 +724,19 @@ dialog#toastLayer::backdrop {
    ========================================================================== */
 .image-drop {
   position: relative;
-  border: 0.0625rem dashed var(--line);
+  border: 0.125rem solid var(--line);
   border-radius: 0.375rem;
-  height: 13, 75rem;
+  height: 13.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   cursor: pointer;
-  background: var(--background);
+  background: var(--disabled-border);
 }
 .image-drop.drag {
   outline: 0.1875rem dashed var(--accent);
-  outline-offset: 0.25rem;
+  outline-offset: 0.1rem;
 }
 
 .modal-roster-image {
@@ -1056,7 +1056,7 @@ dialog#appBusy::backdrop {
 }
 
 #appBusy .panel {
-  min-width: 13, 75rem;
+  min-width: 13.75rem;
   max-width: 90vw;
   padding: 0.875rem 1.125rem;
   border-radius: 0.375rem;
@@ -1066,13 +1066,6 @@ dialog#appBusy::backdrop {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  font:
-    500 0.875rem/1.4 system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Helvetica,
-    Arial;
 }
 
 #appBusy .spinner {
