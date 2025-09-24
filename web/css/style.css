@@ -19,6 +19,7 @@
   --error-background: #fff6f6;
   --empty: #9fb0c7;
   --turnout-stroke: #b8c1cc;
+  --light-stroke: #b8c1cc;
   --busy-overlay: #00000059;
 }
 
@@ -567,6 +568,7 @@ input[type="checkbox"]:disabled {
   cursor: pointer;
 }
 
+.card-body-light,
 .card-body-turnout {
   grid-template-columns: repeat(1, minmax(0, 1fr));
 }
@@ -724,7 +726,7 @@ dialog#toastLayer::backdrop {
   position: relative;
   border: 0.0625rem dashed var(--line);
   border-radius: 0.375rem;
-  height: 13,75rem;
+  height: 13, 75rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -833,8 +835,8 @@ input.fn-label-input,
   border: 0.0625rem solid var(--line);
   border-radius: 0.375rem;
   font-size: 1rem;
-  text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   background-clip: padding-box;
 }
 
@@ -1054,7 +1056,7 @@ dialog#appBusy::backdrop {
 }
 
 #appBusy .panel {
-  min-width: 13,75rem;
+  min-width: 13, 75rem;
   max-width: 90vw;
   padding: 0.875rem 1.125rem;
   border-radius: 0.375rem;
@@ -1122,6 +1124,47 @@ dialog#appBusy::backdrop {
 /* Slightly dim tracks when unknown (visual hint) */
 .turnout-icon.unknown .trk {
   opacity: 0.7;
+}
+
+/* ==========================================================================
+   17a) Lights icons (SVG)
+   ========================================================================== */
+.light-icon {
+  width: 64px;
+  height: 64px;
+}
+
+.light-icon .on-state,
+.light-icon .off-state {
+  stroke: var(--light-stroke);
+}
+
+.light-icon.off .off-state .active-outline,
+.light-icon.on .on-state .active-outline {
+  stroke: var(--accent);
+}
+
+/* Slightly dim bulb when unknown (visual hint) */
+.light-icon.unknown .off-state .active-outline,
+.light-icon.unknown .on-state .active-outline {
+  opacity: 0.7;
+}
+
+.light-icon .on-state,
+.light-icon .off-state {
+  display: none;
+}
+
+.light-icon .off-state {
+  display: inline;
+}
+
+.light-icon.on .off-state {
+  display: none;
+}
+
+.light-icon.on .on-state {
+  display: inline;
 }
 
 /* ==========================================================================

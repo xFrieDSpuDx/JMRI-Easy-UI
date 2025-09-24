@@ -1,17 +1,17 @@
-// js/controllers/turnouts/dialog.js
-// Turnout dialog (create + edit) with shared DCC validation
+// js/controllers/lights/dialog.js
+// Light dialog (create + edit) with shared DCC validation
 //
 // #toSystemName holds the numeric DCC address only.
 // On create: systemName = <selectedPrefix> + <digits>.
 // On edit: we show the numeric part (readonly) and never rename.
 
-import { onDeleteTurnout, fetchTurnoutsData } from "./index.js";
+import { onDeleteLight, fetchLightsData } from "./index.js";
 import { busyWhile } from "../../ui/busy.js";
-import { createTurnout, updateTurnout } from "./data.js";
+import { createLight, updateLight } from "./data.js";
 import { getPrefixes } from "../../services/prefixes.js";
 import { showToast } from "../../ui/toast.js";
 import { resetDialogTabsAndScroll } from "../../ui/tabs.js";
-import { query, getInputValue, isElementChecked } from "../../ui/dom.js";
+import { query, getInputValue } from "../../ui/dom.js";
 import { collectExistingIdSet, buildUniqueIdSuggestion } from "../../services/api.js";
 import {
   DCC_RULES_REQUIRED,
@@ -24,22 +24,21 @@ import {
  * ========================================================================== */
 
 /** Dialog element selectors. */
-const TURNOUT_DIALOG_SELECTORS = {
-  dialog: "#turnoutDialog",
-  form: "#turnoutForm",
-  title: "#turnoutDialogTitle",
-  prefix: "#toPrefixSelect",
-  system: "#toSystemName",
-  user: "#toUserName",
-  comment: "#toComment",
-  inverted: "#toInverted",
-  state: "#toState",
-  save: "#turnoutSave",
-  cancel: "#turnoutCancel",
-  close: "#turnoutClose",
-  delete: "#turnoutDelete",
-  countRow: "#toCountRow",
-  count: "#toCount",
+const LIGHT_DIALOG_SELECTORS = {
+  dialog: "#lightDialog",
+  form: "#lightForm",
+  title: "#lightDialogTitle",
+  prefix: "#toLightPrefixSelect",
+  system: "#toLightSystemName",
+  user: "#toLightUserName",
+  comment: "#toLightComment",
+  state: "#toLightState",
+  save: "#lightSave",
+  cancel: "#lightCancel",
+  close: "#lightClose",
+  delete: "#lightDelete",
+  countRow: "#toLightCountRow",
+  count: "#toLightCount",
 };
 
 /** Busy message shown while saving. */
@@ -69,10 +68,10 @@ let detachAddressValidation = null;
  * @returns {Promise<Array<{systemPrefix:string, systemNamePrefix:string, connectionName?:string}>>}
  */
 async function populatePrefixSelect() {
-  const prefixSelect = query(TURNOUT_DIALOG_SELECTORS.prefix);
+  const prefixSelect = query(LIGHT_DIALOG_SELECTORS.prefix);
   if (!prefixSelect) return [];
 
-  const prefixList = await getPrefixes("turnout"); // [{systemPrefix, systemNamePrefix, connectionName}, ...]
+  const prefixList = await getPrefixes("light"); // [{systemPrefix, systemNamePrefix, connectionName}, ...]
   knownSystemNamePrefixes = Array.isArray(prefixList)
     ? prefixList.map((prefixObject) => prefixObject.systemNamePrefix).filter(Boolean)
     : [];
@@ -139,49 +138,46 @@ function extractDigitsFromSystemName(systemName, detectedPrefix) {
  * @returns {void}
  */
 function setFormValuesFromRecord(record, detectedPrefixForEdit = null) {
-  const systemInput = query(TURNOUT_DIALOG_SELECTORS.system);
-  const userInput = query(TURNOUT_DIALOG_SELECTORS.user);
-  const commentInput = query(TURNOUT_DIALOG_SELECTORS.comment);
-  const invertedInput = query(TURNOUT_DIALOG_SELECTORS.inverted);
-  const stateSelect = query(TURNOUT_DIALOG_SELECTORS.state);
+  const systemInput = query(LIGHT_DIALOG_SELECTORS.system);
+  const userInput = query(LIGHT_DIALOG_SELECTORS.user);
+  const commentInput = query(LIGHT_DIALOG_SELECTORS.comment);
+  const stateSelect = query(LIGHT_DIALOG_SELECTORS.state);
 
   const fullSystemName = record?.name || record?.address || record?.data?.name || "";
 
   systemInput.value = extractDigitsFromSystemName(fullSystemName, detectedPrefixForEdit);
   userInput.value = record?.userName || record?.title || "";
   commentInput.value = record?.comment || "";
-  invertedInput.checked = !!record?.inverted;
   stateSelect.value = ""; // unchanged by default
 }
 
 /**
  * Collect form values from the dialog inputs.
  *
- * @returns {{ dccDigits:string, selectedPrefix:string, userName:string, comment:string, inverted:boolean, stateChoice:string }}
+ * @returns {{ dccDigits:string, selectedPrefix:string, userName:string, comment:string, stateChoice:string }}
  */
 function collectFormValues() {
   return {
-    dccDigits: getInputValue(TURNOUT_DIALOG_SELECTORS.system),
-    selectedPrefix: getInputValue(TURNOUT_DIALOG_SELECTORS.prefix),
-    userName: getInputValue(TURNOUT_DIALOG_SELECTORS.user),
-    comment: getInputValue(TURNOUT_DIALOG_SELECTORS.comment),
-    inverted: isElementChecked(TURNOUT_DIALOG_SELECTORS.inverted),
-    stateChoice: getInputValue(TURNOUT_DIALOG_SELECTORS.state), // "", "closed", "thrown"
+    dccDigits: getInputValue(LIGHT_DIALOG_SELECTORS.system),
+    selectedPrefix: getInputValue(LIGHT_DIALOG_SELECTORS.prefix),
+    userName: getInputValue(LIGHT_DIALOG_SELECTORS.user),
+    comment: getInputValue(LIGHT_DIALOG_SELECTORS.comment),
+    stateChoice: getInputValue(LIGHT_DIALOG_SELECTORS.state), // "", "on", "off"
   };
 }
 
 /**
- * Map desired logical state → JMRI raw value, honouring inversion.
+ * Map desired logical state → JMRI raw value
  *
- * @param {string} stateChoice - "", "closed", or "thrown".
+ * @param {string} stateChoice - "", "on", or "off".
  * @param {boolean} inverted
  * @returns {number|null} JMRI raw state or null if no choice.
  */
-function convertStateToRaw(stateChoice, inverted) {
+function convertStateToRaw(stateChoice) {
   if (!stateChoice) return null;
-  const wantsThrown = stateChoice === "thrown";
+  const lightStatus = stateChoice === "on";
   // Normal: Closed=2, Thrown=4. Inverted flips them.
-  return wantsThrown ? (inverted ? 2 : 4) : inverted ? 4 : 2;
+  return lightStatus ?  2 : 4;
 }
 
 /* ============================================================================
@@ -194,7 +190,7 @@ function convertStateToRaw(stateChoice, inverted) {
  * @returns {number}
  */
 function getSequentialCount() {
-  const countValue = Number(query(TURNOUT_DIALOG_SELECTORS.count)?.value ?? 1);
+  const countValue = Number(query(LIGHT_DIALOG_SELECTORS.count)?.value ?? 1);
   return Number.isFinite(countValue) && countValue > 0 ? Math.min(countValue, 64) : 1;
 }
 
@@ -205,7 +201,7 @@ function getSequentialCount() {
  * @returns {void}
  */
 function toggleSequentialRow(visible) {
-  const row = query(TURNOUT_DIALOG_SELECTORS.countRow);
+  const row = query(LIGHT_DIALOG_SELECTORS.countRow);
   if (row) row.hidden = !visible;
 }
 
@@ -220,7 +216,7 @@ function toggleSequentialRow(visible) {
  * @returns {void}
  */
 function setDialogTitle(text) {
-  const titleElement = query(TURNOUT_DIALOG_SELECTORS.title);
+  const titleElement = query(LIGHT_DIALOG_SELECTORS.title);
   if (titleElement) titleElement.textContent = text;
 }
 
@@ -230,7 +226,7 @@ function setDialogTitle(text) {
  * @returns {void}
  */
 function openDialog() {
-  const dialogElement = query(TURNOUT_DIALOG_SELECTORS.dialog);
+  const dialogElement = query(LIGHT_DIALOG_SELECTORS.dialog);
   if (dialogElement && !dialogElement.open) dialogElement.showModal();
   // Reset tab and scroll
   resetDialogTabsAndScroll(dialogElement);
@@ -242,7 +238,7 @@ function openDialog() {
  * @returns {void}
  */
 export function closeDialog() {
-  const dialogElement = query(TURNOUT_DIALOG_SELECTORS.dialog);
+  const dialogElement = query(LIGHT_DIALOG_SELECTORS.dialog);
   if (!dialogElement) return;
   try {
     if (dialogElement.open) dialogElement.close();
@@ -273,7 +269,7 @@ async function handleSave(existingRecord) {
   }
 
   const finalSystemName = computeFinalSystemName(existingRecord, form, isCreateMode);
-  const desiredStateRaw = computeInitialStateRaw(form);
+  const desiredStateRaw = convertStateToRaw(form.stateChoice);
   const sequentialCount = isCreateMode ? getSequentialCount() : 1;
 
   try {
@@ -282,14 +278,14 @@ async function handleSave(existingRecord) {
     await busyWhile(async () => {
       if (isCreateMode && sequentialCount > 1) {
         // Batch create sequential addresses
-        toastMessage = await createSequentialTurnouts(form, sequentialCount, desiredStateRaw);
+        toastMessage = await createSequentialLights(form, sequentialCount, desiredStateRaw);
       } else if (isCreateMode) {
         // Single create
-        await createSingleTurnout(finalSystemName, form, desiredStateRaw);
+        await createSingleLight(finalSystemName, form, desiredStateRaw);
       } else {
         // Edit existing
         const targetSystemName = getTargetSystemName(existingRecord, finalSystemName);
-        await updateExistingTurnout(targetSystemName, form, desiredStateRaw);
+        await updateExistingLight(targetSystemName, form, desiredStateRaw);
       }
     }, savingMessage);
 
@@ -339,16 +335,6 @@ function computeFinalSystemName(existingRecord, form, isCreateMode) {
 }
 
 /**
- * Convert UI state choice to raw, honouring inversion.
- *
- * @param {{ stateChoice:string, inverted:boolean }} form
- * @returns {number|null}
- */
-function computeInitialStateRaw(form) {
-  return convertStateToRaw(form.stateChoice, form.inverted);
-}
-
-/**
  * When editing, find the correct system name target.
  *
  * @param {any} existingRecord
@@ -365,57 +351,55 @@ function getTargetSystemName(existingRecord, fallbackSystemName) {
 }
 
 /**
- * Create a single turnout, applying the “no name → use DCC address” rule.
+ * Create a single light, applying the “no name → use DCC address” rule.
  *
  * @param {string} systemName
- * @param {{ dccDigits:string, userName:string, comment:string, inverted:boolean }} form
+ * @param {{ dccDigits:string, userName:string, comment:string }} form
  * @param {number|null} desiredStateRaw
  * @returns {Promise<void>}
  */
-async function createSingleTurnout(systemName, form, desiredStateRaw) {
+async function createSingleLight(systemName, form, desiredStateRaw) {
   // If no friendly name provided, use the DCC address as the userName
   const userName = (form.userName || "").trim() || String(form.dccDigits || "");
 
-  await createTurnout({
+  await createLight({
     systemName,
     userName,
     comment: form.comment,
-    inverted: form.inverted,
   });
 
   if (desiredStateRaw !== null) {
-    await updateTurnout(systemName, { state: desiredStateRaw });
+    await updateLight(systemName, { state: desiredStateRaw });
   }
 }
 
 /**
- * Update an existing turnout; state is optional.
+ * Update an existing light; state is optional.
  *
  * @param {string} systemName
- * @param {{ userName:string, comment:string, inverted:boolean }} form
+ * @param {{ userName:string, comment:string }} form
  * @param {number|null} desiredStateRaw
  * @returns {Promise<void>}
  */
-async function updateExistingTurnout(systemName, form, desiredStateRaw) {
+async function updateExistingLight(systemName, form, desiredStateRaw) {
   const updateFields = {
     userName: form.userName,
     comment: form.comment,
-    inverted: form.inverted,
   };
   if (desiredStateRaw !== null) updateFields.state = desiredStateRaw;
 
-  await updateTurnout(systemName, updateFields);
+  await updateLight(systemName, updateFields);
 }
 
 /**
- * Batch-create N turnouts with sequential DCC addresses. Returns a toast string.
+ * Batch-create N lights with sequential DCC addresses. Returns a toast string.
  *
- * @param {{ userName:string, comment:string, inverted:boolean, dccDigits:string, selectedPrefix:string }} form
+ * @param {{ userName:string, comment:string, dccDigits:string, selectedPrefix:string }} form
  * @param {number} count
  * @param {number|null} desiredStateRaw
  * @returns {Promise<string>} Summary message for the toast.
  */
-async function createSequentialTurnouts(form, count, desiredStateRaw) {
+async function createSequentialLights(form, count, desiredStateRaw) {
   const baseAddress = Number(form.dccDigits);
   if (!Number.isFinite(baseAddress)) throw new Error("Invalid base DCC address");
   const prefix = form.selectedPrefix || "";
@@ -427,20 +411,19 @@ async function createSequentialTurnouts(form, count, desiredStateRaw) {
   for (let index = 0; index < count; index++) {
     const dcc = baseAddress + index;
     const systemName = `${prefix}${dcc}`;
-    const existingTurnouts = await fetchTurnoutsData();
-    const existingIdSet = collectExistingIdSet(existingTurnouts);
+    const existingLights = await fetchLightsData();
+    const existingIdSet = collectExistingIdSet(existingLights);
     const userName = buildUniqueIdSuggestion(form.userName, dcc, existingIdSet, index === 0);
 
     try {
-      await createTurnout({
+      await createLight({
         systemName,
         userName,
         comment: form.comment,
-        inverted: form.inverted,
       });
 
       if (desiredStateRaw !== null) {
-        await updateTurnout(systemName, { state: desiredStateRaw });
+        await updateLight(systemName, { state: desiredStateRaw });
       }
       createdCount += 1;
     } catch (err) {
@@ -449,10 +432,10 @@ async function createSequentialTurnouts(form, count, desiredStateRaw) {
   }
 
   if (failures.length === 0) {
-    return `Created ${createdCount} turnouts`;
+    return `Created ${createdCount} lights`;
   }
   if (createdCount === 0) {
-    return `No turnouts created (${failures.length} failed)`;
+    return `No lights created (${failures.length} failed)`;
   }
   const sample = failures
     .slice(0, 3)
@@ -468,41 +451,41 @@ async function createSequentialTurnouts(form, count, desiredStateRaw) {
  * ========================================================================== */
 
 /**
- * Open the Turnout dialog.
+ * Open the Light dialog.
  *
  * @param {"create"|"edit"|"sequential"} openMode
  * @param {object|null} record
  * @param {() => void} onSaved
  * @returns {Promise<void>}
  */
-export async function openTurnoutDialog(openMode, record, onSaved) {
+export async function openLightDialog(openMode, record, onSaved) {
   dialogMode = openMode;
   onSavedCallback = onSaved || null;
 
-  setDialogTitle(["create", "sequential"].includes(openMode) ? "Add Turnout" : "Edit Turnout");
+  setDialogTitle(["create", "sequential"].includes(openMode) ? "Add Light" : "Edit Light");
 
   toggleSequentialRow(openMode === "sequential");
-  const countInput = query(TURNOUT_DIALOG_SELECTORS.count);
+  const countInput = query(LIGHT_DIALOG_SELECTORS.count);
   if (countInput) countInput.value = "1";
 
   // Populate prefixes, then fill the form
   try {
     await populatePrefixSelect();
-    const prefixSelect = query(TURNOUT_DIALOG_SELECTORS.prefix);
+    const prefixSelect = query(LIGHT_DIALOG_SELECTORS.prefix);
 
     if (openMode === "edit") {
       const fullSystemName = record?.name || record?.address || record?.data?.name || "";
       const detectedPrefix = detectSystemPrefix(fullSystemName);
       if (prefixSelect && detectedPrefix) prefixSelect.value = detectedPrefix;
 
-      query(TURNOUT_DIALOG_SELECTORS.delete).hidden = false;
+      query(LIGHT_DIALOG_SELECTORS.delete).hidden = false;
 
       setFormValuesFromRecord(record, detectedPrefix);
     } else {
       if (prefixSelect && prefixSelect.options.length > 0 && !prefixSelect.value) {
         prefixSelect.value = prefixSelect.options[0].value;
       }
-      query(TURNOUT_DIALOG_SELECTORS.delete).hidden = true;
+      query(LIGHT_DIALOG_SELECTORS.delete).hidden = true;
 
       setFormValuesFromRecord(null, null); // address empty; user types digits
     }
@@ -511,7 +494,7 @@ export async function openTurnoutDialog(openMode, record, onSaved) {
   }
 
   // In edit mode, DCC field remains readonly (no accidental rename)
-  const addressInput = query(TURNOUT_DIALOG_SELECTORS.system);
+  const addressInput = query(LIGHT_DIALOG_SELECTORS.system);
   if (addressInput) {
     addressInput.toggleAttribute("readonly", openMode === "edit");
   }
@@ -520,28 +503,28 @@ export async function openTurnoutDialog(openMode, record, onSaved) {
   if (detachAddressValidation) detachAddressValidation();
   detachAddressValidation = setupLiveDccValidation({
     input: addressInput,
-    saveButton: query(TURNOUT_DIALOG_SELECTORS.save),
+    saveButton: query(LIGHT_DIALOG_SELECTORS.save),
     rules: DCC_RULES_REQUIRED,
-    errorId: "turnoutSystemNameError",
+    errorId: "lightSystemNameError",
     disableSaveWhenInvalid: true,
   });
 
   openDialog();
 
   // Rebind actions idempotently
-  query(TURNOUT_DIALOG_SELECTORS.save)?.removeEventListener("click", boundSaveHandler);
-  query(TURNOUT_DIALOG_SELECTORS.delete)?.removeEventListener("click", boundDeleteHandler);
-  query(TURNOUT_DIALOG_SELECTORS.cancel)?.removeEventListener("click", boundCancelHandler);
-  query(TURNOUT_DIALOG_SELECTORS.close)?.removeEventListener("click", boundCancelHandler);
+  query(LIGHT_DIALOG_SELECTORS.save)?.removeEventListener("click", boundSaveHandler);
+  query(LIGHT_DIALOG_SELECTORS.delete)?.removeEventListener("click", boundDeleteHandler);
+  query(LIGHT_DIALOG_SELECTORS.cancel)?.removeEventListener("click", boundCancelHandler);
+  query(LIGHT_DIALOG_SELECTORS.close)?.removeEventListener("click", boundCancelHandler);
 
   boundSaveHandler = () => handleSave(record);
-  boundDeleteHandler = () => onDeleteTurnout(record, true);
+  boundDeleteHandler = () => onDeleteLight(record, true);
   boundCancelHandler = () => closeDialog();
 
-  query(TURNOUT_DIALOG_SELECTORS.delete)?.addEventListener("click", boundDeleteHandler);
-  query(TURNOUT_DIALOG_SELECTORS.save)?.addEventListener("click", boundSaveHandler);
-  query(TURNOUT_DIALOG_SELECTORS.cancel)?.addEventListener("click", boundCancelHandler);
-  query(TURNOUT_DIALOG_SELECTORS.close)?.addEventListener("click", boundCancelHandler);
+  query(LIGHT_DIALOG_SELECTORS.delete)?.addEventListener("click", boundDeleteHandler);
+  query(LIGHT_DIALOG_SELECTORS.save)?.addEventListener("click", boundSaveHandler);
+  query(LIGHT_DIALOG_SELECTORS.cancel)?.addEventListener("click", boundCancelHandler);
+  query(LIGHT_DIALOG_SELECTORS.close)?.addEventListener("click", boundCancelHandler);
 }
 
 /**
@@ -549,4 +532,4 @@ export async function openTurnoutDialog(openMode, record, onSaved) {
  *
  * @returns {void}
  */
-export function initTurnoutDialog() {}
+export function initLightDialog() {}

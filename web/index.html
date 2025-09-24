@@ -39,6 +39,7 @@
         <nav class="drawer-nav">
           <button id="navRoster" class="nav-btn active" data-view="roster">Roster</button>
           <button id="navTurnouts" class="nav-btn" data-view="turnouts">Turnouts</button>
+          <button id="navLights" class="nav-btn" data-view="lights">Lights</button>
           <button id="navSettings" class="nav-btn" data-view="settings">Settings</button>
         </nav>
       </aside>
@@ -145,6 +146,58 @@
         </section>
       </section>
 
+      <!-- Lights Panel -->
+      <section id="panelLights" class="sectionContainer" data-panel="lights" hidden>
+        <header class="topbar">
+          <button id="menuBtn" class="icon-btn">☰</button>
+          <h1 class="title">Lights</h1>
+          <div class="spacer"></div>
+          <div class="split-add">
+            <button id="lightsAddBtn" class="btn btn-primary add-button" type="button">
+              Add Light
+            </button>
+
+            <div class="split-add__more">
+              <button
+                id="addLightMore"
+                class="btn btn-slim"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="addLightMenu"
+                title="More ways to add"
+              >
+                <!-- chevron down -->
+                <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path
+                    d="M7 10l5 5 5-5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+
+              <div id="addLightMenu" class="menu" role="menu" hidden>
+                <button class="menu-item" type="button" role="menuitem" data-action="single">
+                  Add Single
+                </button>
+                <button class="menu-item" type="button" role="menuitem" data-action="sequential">
+                  Add Sequential
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section id="lightsList" class="panel-body main content" aria-live="polite">
+          <div class="empty">
+            <div class="empty-title">No lights yet</div>
+            <div class="empty-subtitle">Add a light to get started.</div>
+          </div>
+        </section>
+      </section>
       <!-- Settings Panel -->
       <section id="panelSettings" class="sectionContainer" data-panel="settings" hidden>
         <header class="topbar">
@@ -345,6 +398,72 @@
           <div class="spacer"></div>
           <button type="button" id="turnoutCancel" class="btn">Cancel</button>
           <button type="button" id="turnoutSave" class="btn-primary">Save</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Lights Dialog -->
+    <dialog id="lightDialog" class="modal">
+      <form method="dialog" class="modal-form" id="lightForm">
+        <header class="modal-head">
+          <strong id="lightDialogTitle">Edit Light</strong>
+          <button id="lightClose" type="button" class="icon-btn last-item">✕</button>
+        </header>
+
+        <div class="modal-body">
+          <div class="form-col">
+            <div class="grid">
+              <label>
+                Connection Prefix
+                <select id="toLightPrefixSelect"></select>
+              </label>
+
+              <label>
+                DCC Address
+                <input id="toLightSystemName" inputmode="numeric" required />
+              </label>
+
+              <label id="toLightCountRow" class="row" hidden>
+                <span>Number of Lights</span>
+                <input
+                  id="toLightCount"
+                  type="number"
+                  min="1"
+                  max="99"
+                  step="1"
+                  value="1"
+                  inputmode="numeric"
+                  pattern="\d*"
+                />
+              </label>
+
+              <label>
+                Friendly Name
+                <input id="toLightUserName" />
+              </label>
+
+              <label>
+                Comment
+                <input id="toLightComment" />
+              </label>
+
+              <label>
+                Light State
+                <select id="toLightState">
+                  <option value="">(leave unchanged)</option>
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <footer class="modal-foot">
+          <button type="button" id="lightDelete" hidden="" class="btn btn-warn">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" id="lightCancel" class="btn">Cancel</button>
+          <button type="button" id="lightSave" class="btn-primary">Save</button>
         </footer>
       </form>
     </dialog>

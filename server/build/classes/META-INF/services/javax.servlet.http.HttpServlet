@@ -1,5 +1,6 @@
 easy.ConnectionsApiServlet
 easy.HealthServlet
+easy.LightsApiServlet
 easy.ProgrammerApiServlet
 easy.ReadFromTrackServlet
 easy.RosterApiServlet

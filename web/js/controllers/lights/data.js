@@ -1,19 +1,18 @@
-// js/services/turnouts.js
+// js/services/lights.js
 
 import { jmriJsonCalls } from "../../services/api.js";
 import { _panelsFileCache as panelsFileCache, storeUserConfig } from "../../services/jmri.js";
 
 /**
- * @typedef {object} NormalisedTurnout
+ * @typedef {object} NormalisedLight
  * @property {string} title
  * @property {string} address
  * @property {string} comment
  * @property {number} [state]
- * @property {"Closed"|"Thrown"|"Unknown"} normalisedState
- * @property {boolean} isThrown
- * @property {boolean} isClosed
+ * @property {"On"|"Off"|"Unknown"} normalisedState
+ * @property {boolean} isOff
+ * @property {boolean} isOn
  * @property {boolean} isUnknown
- * @property {boolean} inverted
  * @property {string} name
  * @property {string} userName
  * @property {Record<string, any>} data
@@ -26,15 +25,15 @@ import { _panelsFileCache as panelsFileCache, storeUserConfig } from "../../serv
  * Shapes seen in the wild:
  * - Array of items
  * - { data: [...] }
- * - { turnouts: [...] }
+ * - { lights: [...] }
  * - { list: [...] }
  * - { items: [...] }
  * - { <name>: {...}, <name>: {...}, ... }  (dictionary keyed by name)
  *
  * @param {unknown} rawPayload
- * @returns {Array<NormalisedTurnout>}
+ * @returns {Array<NormalisedLight>}
  */
-export function normaliseTurnouts(rawPayload) {
+export function normaliseLights(rawPayload) {
   /** @type {any[] | null} */
   let items = null;
 
@@ -46,9 +45,9 @@ export function normaliseTurnouts(rawPayload) {
       // @ts-ignore
       items = rawPayload.data;
       // @ts-ignore
-    } else if (Array.isArray(rawPayload.turnouts)) {
+    } else if (Array.isArray(rawPayload.lights)) {
       // @ts-ignore
-      items = rawPayload.turnouts;
+      items = rawPayload.lights;
       // @ts-ignore
     } else if (Array.isArray(rawPayload.list)) {
       // @ts-ignore
@@ -64,27 +63,27 @@ export function normaliseTurnouts(rawPayload) {
     }
   }
 
-  return (items || []).map(toTurnoutRecord).filter(Boolean);
+  return (items || []).map(toLightRecord).filter(Boolean);
 }
 
 /**
- * Convert a single raw turnout object into a UI-friendly record while
+ * Convert a single raw light object into a UI-friendly record while
  * preserving all original fields under `data`.
  *
  * Display rules:
  * - title   = userName
  * - address = name
  * - comment = comment (if present)
- * - state flags derived from `state`, considering `inverted`
+ * - state flags derived from `state`
  *
  * JMRI numeric state notes (typical):
- *   Thrown = 4, Closed = 2
- *   Some layouts treat 0 as Unknown; `inverted` flips the meaning.
+ *   Off = 4, On = 2
+ *   Some layouts treat 0 as Unknown.
  *
- * @param {any} source - Raw turnout item as returned by JMRI.
- * @returns {NormalisedTurnout | null}
+ * @param {any} source - Raw light item as returned by JMRI.
+ * @returns {NormalisedLight | null}
  */
-export function toTurnoutRecord(source) {
+export function toLightRecord(source) {
   if (!source) return null;
 
   // Preserve everything the server provided (prefer nested `data`, else the whole source)
@@ -94,28 +93,27 @@ export function toTurnoutRecord(source) {
   const name = rawData.name || "";
   const userName = rawData.userName || "";
   const comment = rawData.comment || "";
-  const isInverted = Boolean(rawData.inverted);
 
-  // State → "Closed" / "Thrown" / "Unknown"
+  // State → "On" / "Off" / "Unknown"
   const rawState = rawData.state;
   let normalisedState = "Unknown";
-  let isThrown = false;
-  let isClosed = false;
+  let isOff = false;
+  let isOn = false;
   let isUnknown = true;
 
   // Typical JMRI constants:
-  // Thrown = 4, Closed = 2. The `inverted` flag flips the interpretation.
-  if ((rawState === 4 && !isInverted) || (rawState === 2 && isInverted)) {
-    normalisedState = "Thrown";
-    isThrown = true;
+  // Off = 4, On = 2.
+  if (rawState === 4) {
+    normalisedState = "Off";
+    isOff = true;
     isUnknown = false;
-  } else if ((rawState === 2 && !isInverted) || (rawState === 4 && isInverted)) {
-    normalisedState = "Closed";
-    isClosed = true;
+  } else if (rawState === 2) {
+    normalisedState = "On";
+    isOn = true;
     isUnknown = false;
   }
 
-  /** @type {NormalisedTurnout} */
+  /** @type {NormalisedLight} */
   const record = {
     // Display fields
     title: userName,
@@ -125,10 +123,9 @@ export function toTurnoutRecord(source) {
     // State
     state: rawState,
     normalisedState,
-    isThrown,
-    isClosed,
+    isOff,
+    isOn,
     isUnknown,
-    inverted: isInverted,
 
     // IDs we may need later
     name,
@@ -142,12 +139,12 @@ export function toTurnoutRecord(source) {
 }
 
 /**
- * Create a new turnout (JMRI: PUT /json/turnout/:systemName).
+ * Create a new light (JMRI: PUT /json/light/:systemName).
  *
- * @param {{ systemName:string, userName?:string, comment?:string, inverted?:boolean }} input
- * @returns {Promise<NormalisedTurnout>} Normalised turnout record.
+ * @param {{ systemName:string, userName?:string, comment?:string }} input
+ * @returns {Promise<NormalisedLight>} Normalised light record.
  */
-export async function createTurnout(input) {
+export async function createLight(input) {
   const systemName = String(input.systemName || "").trim();
   if (!systemName) throw new Error("System Name is required");
 
@@ -156,10 +153,9 @@ export async function createTurnout(input) {
     name: systemName,
     ...(input.userName != null ? { userName: input.userName } : {}),
     ...(input.comment != null ? { comment: input.comment } : {}),
-    ...(input.inverted != null ? { inverted: !!input.inverted } : {}),
   };
 
-  const path = `/json/turnout/${encodeURIComponent(systemName)}`;
+  const path = `/json/light/${encodeURIComponent(systemName)}`;
 
   // 1) Create with PUT (some JMRI versions ignore extras here)
   const created = await jmriJsonCalls("PUT", path, payload);
@@ -167,25 +163,24 @@ export async function createTurnout(input) {
   // 2) If we sent any extras, apply them with a POST so userName sticks
   const sentExtras =
     Object.prototype.hasOwnProperty.call(payload, "userName") ||
-    Object.prototype.hasOwnProperty.call(payload, "comment") ||
-    Object.prototype.hasOwnProperty.call(payload, "inverted");
+    Object.prototype.hasOwnProperty.call(payload, "comment");
 
   const finalRaw = sentExtras ? await jmriJsonCalls("POST", path, payload) : created;
 
   await storeUserConfig(panelsFileCache);
 
-  return toTurnoutRecord(finalRaw);
+  return toLightRecord(finalRaw);
 }
 
 /**
- * Update an existing turnout (JMRI: POST /json/turnout/:systemName).
+ * Update an existing light (JMRI: POST /json/light/:systemName).
  * Note: This does not rename the system name (JMRI typically treats name as immutable).
  *
  * @param {string} systemName
- * @param {{ userName?:string, comment?:string, inverted?:boolean, state?:number }} fields
- * @returns {Promise<NormalisedTurnout | null>} Updated normalised record.
+ * @param {{ userName?:string, comment?:string, state?:number }} fields
+ * @returns {Promise<NormalisedLight | null>} Updated normalised record.
  */
-export async function updateTurnout(systemName, fields) {
+export async function updateLight(systemName, fields) {
   const name = String(systemName || "").trim();
   if (!name) throw new Error("System Name is required");
 
@@ -193,22 +188,21 @@ export async function updateTurnout(systemName, fields) {
     name,
     ...(fields.userName != null ? { userName: fields.userName } : {}),
     ...(fields.comment != null ? { comment: fields.comment } : {}),
-    ...(fields.inverted != null ? { inverted: !!fields.inverted } : {}),
     ...(fields.state != null ? { state: fields.state } : {}),
   };
 
-  const raw = await jmriJsonCalls("POST", `/json/turnout/${encodeURIComponent(name)}`, payload);
-  return toTurnoutRecord(raw);
+  const raw = await jmriJsonCalls("POST", `/json/light/${encodeURIComponent(name)}`, payload);
+  return toLightRecord(raw);
 }
 
 /**
- * Delete a turnout (JMRI: DELETE /json/turnout/:systemName).
+ * Delete a light (JMRI: DELETE /json/light/:systemName).
  *
  * @param {string} systemName
  * @returns {Promise<void>}
  */
-export async function deleteTurnout(systemName) {
+export async function deleteLight(systemName) {
   const name = String(systemName || "").trim();
   if (!name) throw new Error("System Name is required");
-  await jmriJsonCalls("DELETE", `/json/turnout/${encodeURIComponent(name)}`);
+  await jmriJsonCalls("DELETE", `/api/lights/${encodeURIComponent(name)}`);
 }
