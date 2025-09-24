@@ -37,8 +37,12 @@ export function loadInfoTab(record, prefill = false) {
   const imageSrc = record?.imageUrl
     ? `${record.imageUrl}&v=${Date.now()}`
     : buildRosterIconUrlForId(locoId);
+  let decoderSelectId = "";
 
-  preloadDecoderSelection(query(LOCO_DIALOG_SELECTORS.decoderSelect), locoId);
+  if (!prefill) decoderSelectId = locoId || "";
+  else decoderSelectId = record?.decoderSelectId || "";
+
+  preloadDecoderSelection(query(LOCO_DIALOG_SELECTORS.decoderSelect), decoderSelectId);
 
   if (prefill) {
     existingImageUrl = record?.imageUrl || "";

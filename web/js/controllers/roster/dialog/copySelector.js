@@ -3,50 +3,7 @@ import { showToast } from "../../../ui/toast.js";
 import { fetchRoster } from "../data.js";
 import { openLocoDialog } from "../dialog.js";
 import { refreshRoster } from "../index.js";
-
-/**
- * Build a unique ID suggestion based on a base ID and a set of existing IDs.
- * If the base already exists, appends/increments a numeric suffix.
- *
- * @param {string} locoId - The starting ID value to base the suggestion on.
- * @param {Set<string>} existingIdSet - A set of existing IDs (case-insensitive).
- * @returns {string} A unique ID suggestion, or an empty string if no base provided.
- */
-function buildUniqueIdSuggestion(locoId, existingIdSet) {
-  const base = String(locoId || "").trim();
-  if (!base) return "";
-
-  const exists = (id) => existingIdSet.has(String(id).toLowerCase());
-  if (!exists(base)) return base;
-
-  const matchedId = base.match(/^(.*?)(\d+)$/);
-  const stem = matchedId ? matchedId[1] : `${base}-`;
-  let numberPostfix = matchedId ? parseInt(matchedId[2], 10) + 1 : 2;
-  let candidate = `${stem}${numberPostfix}`;
-
-  while (exists(candidate)) {
-    numberPostfix += 1;
-    candidate = `${stem}${numberPostfix}`;
-  }
-
-  return candidate;
-}
-
-/**
- * Create a Set of existing IDs (lowercased) from a normalized roster.
- *
- * @param {Array<object>} records - Roster records that may contain an `id` field.
- * @returns {Set<string>} A set of lowercased IDs.
- */
-function collectExistingIdSet(records) {
-  const recordSet = new Set();
-  for (const record of records || []) {
-    if (record?.id) {
-      recordSet.add(String(record.id).toLowerCase());
-    }
-  }
-  return recordSet;
-}
+import { collectExistingIdSet, buildUniqueIdSuggestion } from "../../../services/api.js";
 
 /**
  * Build the icon URL for a given roster entry ID.
@@ -69,7 +26,7 @@ function openCopyFromRecord(source, allRecords) {
   if (!source) return;
 
   const existingIds = collectExistingIdSet(allRecords);
-  const suggestedId = buildUniqueIdSuggestion(source.id, existingIds);
+  const suggestedId = buildUniqueIdSuggestion(source.id, source.address, existingIds, true);
 
   const prefill = {
     id: suggestedId,
@@ -80,6 +37,7 @@ function openCopyFromRecord(source, allRecords) {
     owner: source.owner || "",
     file: "",
     imageUrl: source.imageUrl || "",
+    decoderSelectId: source.id || "",
   };
 
   openLocoDialog("create", prefill, () => refreshRoster(), true);

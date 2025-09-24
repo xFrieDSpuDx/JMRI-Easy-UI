@@ -4,6 +4,7 @@ import { populateCachedValues } from "./services/cachedValues.js";
 import { initRoster } from "./controllers/roster/index.js";
 import { initSettings } from "./controllers/settings/index.js";
 import { initTurnouts } from "./controllers/turnouts/index.js";
+import { initLights } from "./controllers/lights/index.js";
 import { initDom } from "./ui/dom.js";
 
 /**
@@ -22,4 +23,5 @@ import { initDom } from "./ui/dom.js";
   initRoster();
   initSettings();
   initTurnouts();
+  initLights();
 })();

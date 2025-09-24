@@ -6,6 +6,7 @@
 const PANEL_IDS = {
   roster: "panelRoster",
   turnouts: "panelTurnouts",
+  lights: "panelLights",
   settings: "panelSettings",
 };
 
@@ -13,6 +14,7 @@ const PANEL_IDS = {
 const NAV_IDS = {
   roster: "navRoster",
   turnouts: "navTurnouts",
+  lights: "navLights",
   settings: "navSettings",
 };
 

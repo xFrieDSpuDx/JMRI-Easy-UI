@@ -14,6 +14,57 @@ function resolveUrl(pathOrUrl) {
 }
 
 /**
+ * Create a Set of existing IDs (lowercased) from a normalized roster.
+ *
+ * @param {Array<object>} records - Roster records that may contain an `id` field.
+ * @returns {Set<string>} A set of lowercased IDs.
+ */
+export function collectExistingIdSet(records) {
+  const recordSet = new Set();
+  for (const record of records || []) {
+    if (record?.id) {
+      recordSet.add(String(record.id).toLowerCase());
+    }
+    if (record?.userName) {
+      recordSet.add(String(record.userName).toLowerCase());
+    }
+  }
+  return recordSet;
+}
+
+/**
+ * Unique-name rule:
+ * - no base name → just the DCC address
+ * - with base name → first = base only, subsequent = "base increment number id"
+ * Do not allow duplicates (case-insensitive).
+ *
+ * @param {string} baseUserName
+ * @param {number} dccAddress
+ * @param {Array} existingIdSet
+ * @param {boolean} isFirst
+ * @returns {string}
+ */
+export function buildUniqueIdSuggestion(baseUserName, dccAddress, existingIdSet, isFirst) {
+  const base = (baseUserName || "").trim();
+  if (!base) return String(dccAddress);
+
+  const exists = (id) => existingIdSet.has(String(id).toLowerCase());
+  if (!exists(base) && isFirst) return base;
+
+  const matchedId = base.match(/^(.*?)(\d+)$/);
+  const stem = matchedId ? matchedId[1] : `${base} `;
+  let numberPostfix = matchedId ? parseInt(matchedId[2], 10) + 1 : 2;
+  let candidate = `${stem}${numberPostfix}`;
+
+  while (exists(candidate)) {
+    numberPostfix += 1;
+    candidate = `${stem}${numberPostfix}`;
+  }
+
+  return candidate;
+}
+
+/**
  * Parse a fetch Response as JSON if available, otherwise as text.
  *
  * - If the server returns `Content-Type: application/json` and an empty body,

@@ -409,6 +409,33 @@ export async function getTurnouts() {
 }
 
 /* =====================================================================================
+ * JMRI Lights Servlet Helpers
+ * ===================================================================================== */
+
+/**
+ * Fetch the list of turnouts from JMRI.
+ *
+ * @returns {Promise<any[]>} Raw turnouts payload.
+ * @throws {Error} If the endpoint cannot be loaded or returns no usable data.
+ */
+export async function getLights() {
+  let payload = null;
+  let lastError = null;
+
+  try {
+    payload = await getJSON("/api/lights");
+    if (payload) {
+      return payload;
+    }
+  } catch (error) {
+    lastError = error;
+  }
+
+  // If we reach here, we didn't get usable data.
+  throw lastError || new Error("No light data");
+}
+
+/* =====================================================================================
  * JMRI Stores Helpers
  * ===================================================================================== */
 

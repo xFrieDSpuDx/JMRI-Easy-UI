@@ -1,34 +1,34 @@
-// js/controllers/turnouts/index.js
-// Controller for the Turnouts panel.
+// js/controllers/lights/index.js
+// Controller for the Lights panel.
 // - Initializes on first view
 // - Loads data from JMRI via data.js
-// - Renders turnouts using the shared roster-style card grid
+// - Renders lights using the shared roster-style card grid
 // - Wires Add / Edit / Delete actions (lightweight prompt flows for now)
 
 /* --------------------------------- Imports -------------------------------- */
 
 // Parent imports
-import { getTurnouts } from "../../services/jmri.js";
+import { getLights } from "../../services/jmri.js";
 import { busyWhile } from "../../ui/busy.js";
 import { showToast } from "../../ui/toast.js";
 import { query } from "../../ui/dom.js";
 // Sibling imports
-import { updateTurnout, deleteTurnout, normaliseTurnouts } from "./data.js";
-import { TURNOUTS_SELECTORS as turnoutsSelectors, queryTurnoutsElements } from "./selectors.js";
-import { createTurnoutCard } from "./view.js";
-import { openTurnoutDialog, initTurnoutDialog, closeDialog } from "./dialog.js";
+import { updateLight, deleteLight, normaliseLights } from "./data.js";
+import { LIGHTS_SELECTORS as lightsSelectors, queryLightsElements } from "./selectors.js";
+import { createLightCard } from "./view.js";
+import { openLightDialog, initLightDialog, closeDialog } from "./dialog.js";
 
 /* --------------------------------- State ---------------------------------- */
 
 /** Panel identity used by the shell’s panel switch events. */
-const panelName = "turnouts";
+const panelName = "lights";
 
 /** User-facing busy messages. */
-const loadingMessage = "Loading turnouts…";
+const loadingMessage = "Loading lights…";
 const deletingMessage = "Deleting…";
 
 /** Module-scoped state for this controller. */
-const controllerState = {
+const lightControllerState = {
   initialized: false,
   items: [],
 };
@@ -50,36 +50,36 @@ function toast(message) {
 
 /* =============================== Data layer =============================== */
 /**
- * Fetch the latest turnouts from the data layer and cache them.
+ * Fetch the latest lights from the data layer and cache them.
  *
- * @returns {Promise<Array>} The normalised turnout list.
+ * @returns {Promise<Array>} The normalised light list.
  */
-export async function fetchTurnoutsData() {
-  const list = await getTurnouts();
-  const normalisedList = normaliseTurnouts(list);
-  controllerState.items = normalisedList;
+export async function fetchLightsData() {
+  const list = await getLights();
+  const normalisedList = normaliseLights(list);
+  lightControllerState.items = normalisedList;
 
   return normalisedList;
 }
 
 /* ================================ Rendering =============================== */
 /**
- * Render a list of turnout records into the panel list container.
+ * Render a list of light records into the panel list container.
  *
- * @param {Array} list - Normalised turnout records.
+ * @param {Array} list - Normalised light records.
  * @returns {void}
  */
-function renderTurnoutList(list) {
-  const containerElement = query(turnoutsSelectors.list);
+function renderLightList(list) {
+  const containerElement = query(lightsSelectors.list);
   if (!containerElement) return;
 
   containerElement.innerHTML = "";
 
   (list || []).forEach((record) => {
-    const cardElement = createTurnoutCard(record, {
-      onToggle: () => onToggleTurnout(record),
-      onEdit: () => onEditTurnout(record),
-      onDelete: () => onDeleteTurnout(record),
+    const cardElement = createLightCard(record, {
+      onToggle: () => onToggleLight(record),
+      onEdit: () => onEditLight(record),
+      onDelete: () => onDeleteLight(record),
     });
     containerElement.appendChild(cardElement);
   });
@@ -89,8 +89,8 @@ function renderTurnoutList(list) {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.innerHTML = `
-      <div class="empty-title">No turnouts yet</div>
-      <div class="empty-subtitle">Add a turnout to get started.</div>
+      <div class="empty-title">No lights yet</div>
+      <div class="empty-subtitle">Add a light to get started.</div>
     `;
     containerElement.appendChild(empty);
   }
@@ -98,22 +98,22 @@ function renderTurnoutList(list) {
 
 /* ============================== Public API =============================== */
 /**
- * Render the Turnouts panel the first time it becomes visible.
+ * Render the Lights panel the first time it becomes visible.
  * Subsequent calls are no-ops unless you explicitly reset the controller state.
  *
  * @returns {Promise<void>} Resolves after initial render.
  */
-export async function renderTurnoutsOnce() {
-  if (controllerState.initialized) return;
-  controllerState.initialized = true;
+export async function renderLightsOnce() {
+  if (lightControllerState.initialized) return;
+  lightControllerState.initialized = true;
 
   // Show an empty grid immediately; fill once data arrives.
-  renderTurnoutList([]);
+  renderLightList([]);
 
   try {
     await busyWhile(async () => {
-      const list = await fetchTurnoutsData();
-      renderTurnoutList(list);
+      const list = await fetchLightsData();
+      renderLightList(list);
     }, loadingMessage);
   } catch {
     // Intentionally silent: keep the empty state if loading fails.
@@ -129,7 +129,7 @@ export async function renderTurnoutsOnce() {
  */
 function handlePanelChanged(event) {
   if (event?.detail?.name === panelName) {
-    renderTurnoutsOnce();
+    renderLightsOnce();
   }
 }
 
@@ -138,67 +138,67 @@ function handlePanelChanged(event) {
  *
  * @returns {Promise<void>} Resolves when refreshed.
  */
-function refreshList() {
+export async function refreshList() {
   return busyWhile(async () => {
-    const list = await fetchTurnoutsData();
-    renderTurnoutList(list);
+    const list = await fetchLightsData();
+    renderLightList(list);
   }, loadingMessage);
 }
 
 /**
- * Open the dialog to add a single turnout.
+ * Open the dialog to add a single light.
  *
  * @returns {void}
  */
-function onAddTurnout() {
-  openTurnoutDialog("create", null, () => {
+function onAddLight() {
+  openLightDialog("create", null, () => {
     refreshList();
   });
 }
 
 /**
- * Open the dialog to add multiple sequential turnouts.
+ * Open the dialog to add multiple sequential lights.
  *
  * @returns {void}
  */
-function onAddSequentialTurnout() {
-  openTurnoutDialog("sequential", null, () => {
+function onAddSequentialLight() {
+  openLightDialog("sequential", null, () => {
     refreshList();
   });
 }
 
 /**
- * Open the dialog to edit a turnout.
+ * Open the dialog to edit a light.
  *
- * @param {object} record - The turnout record to edit.
+ * @param {object} record - The light record to edit.
  * @returns {void}
  */
-function onEditTurnout(record) {
-  openTurnoutDialog("edit", record, () => {
+function onEditLight(record) {
+  openLightDialog("edit", record, () => {
     refreshList();
   });
 }
 
 /**
- * Delete a turnout (confirm-based flow).
+ * Delete a light (confirm-based flow).
  *
- * @param {object} record - The turnout record to delete.
+ * @param {object} record - The light record to delete.
  * @returns {Promise<void>} Resolves after delete attempt completes.
  */
-export async function onDeleteTurnout(record) {
+export async function onDeleteLight(record) {
   const systemName = record.name || record.address || record.data?.name;
   if (!systemName) return;
 
-  const ok = confirm(`Delete turnout "${record.title || systemName}"?\nThis cannot be undone.`);
+  const ok = confirm(`Delete light "${record.title || systemName}"?\nThis cannot be undone.`);
   if (!ok) return;
 
   try {
     await busyWhile(async () => {
-      await deleteTurnout(systemName);
-      const list = await fetchTurnoutsData();
-      renderTurnoutList(list);
+      await deleteLight(systemName);
+      const list = await fetchLightsData();
+      renderLightList(list);
     }, deletingMessage);
-    toast("Turnout deleted");
+    toast("Light deleted");
   } catch {
     toast("Delete failed");
   } finally {
@@ -207,38 +207,38 @@ export async function onDeleteTurnout(record) {
 }
 
 /**
- * Initialize the Turnouts controller:
+ * Initialize the Lights controller:
  * - Subscribes to panel changes
  * - Wires up Add button
- * - If the Turnouts panel is already visible (e.g., deep link), render immediately
+ * - If the Lights panel is already visible (e.g., deep link), render immediately
  *
  * @returns {void}
  */
-export function initTurnouts() {
+export function initLights() {
   document.addEventListener("panel:changed", handlePanelChanged);
   initSplitMenu();
-  initTurnoutDialog();
+  initLightDialog();
 
-  const { panelElement } = queryTurnoutsElements();
+  const { panelElement } = queryLightsElements();
   if (panelElement && !panelElement.hasAttribute("hidden")) {
-    renderTurnoutsOnce();
+    renderLightsOnce();
   }
 }
 
 /**
- * Wire the “Add Turnout” button and split menu.
+ * Wire the “Add Light” button and split menu.
  *
  * @returns {void}
  */
 function initSplitMenu() {
-  const { addButtonElement } = queryTurnoutsElements();
-  const toggle = document.getElementById("addTurnoutMore");
-  const menu = document.getElementById("addTurnoutMenu");
+  const { addButtonElement } = queryLightsElements();
+  const toggle = document.getElementById("addLightMore");
+  const menu = document.getElementById("addLightMenu");
 
   if (!toggle || !menu || !addButtonElement) return;
 
   addButtonElement.addEventListener("click", () => {
-    onAddTurnout();
+    onAddLight();
   });
 
   const openMenu = () => {
@@ -270,10 +270,10 @@ function initSplitMenu() {
     closeMenu();
 
     if (action === "single") {
-      onAddTurnout();
+      onAddLight();
     }
     if (action === "sequential") {
-      onAddSequentialTurnout();
+      onAddSequentialLight();
     }
   });
 }
@@ -281,48 +281,44 @@ function initSplitMenu() {
 /* ============================== Toggle action ============================== */
 /**
  * Compute the raw JMRI state value we need to send to achieve the desired
- * logical state, taking `inverted` into account.
- *  - Normal:   Closed=2, Thrown=4
- *  - Inverted: Closed=4, Thrown=2
+ * logical state.
+ *  - Normal:   On=2, Off=4
  *
- * @param {boolean} targetThrown - Desired logical state.
- * @param {boolean} inverted - Whether the turnout is inverted.
+ * @param {boolean} targetOff - Desired logical state.
  * @returns {number} The raw JMRI state value to send.
  */
-function computeRawState(targetThrown, inverted) {
-  if (targetThrown) {
-    return inverted ? 2 : 4;
-  }
-  // target closed
-  return inverted ? 4 : 2;
+function computeRawState(targetOff) {
+  if (targetOff) return 4;
+  // target on
+  return 2;
 }
 
 /**
- * Toggle a single turnout between Closed and Thrown (Unknown → Thrown).
+ * Toggle a single light between On and Off (Unknown → Off).
  *
- * @param {object} record - The turnout record.
+ * @param {object} record - The light record.
  * @returns {Promise<void>} Resolves after toggle attempt.
  */
-async function onToggleTurnout(record) {
+async function onToggleLight(record) {
   const systemName = record.name || record.address || record.data?.name;
   if (!systemName) return;
 
-  // Decide desired logical target: if currently thrown → close, else → throw.
-  // If unknown, default to Thrown.
-  const currentlyThrown = !!record.isThrown;
-  const currentlyClosed = !!record.isClosed;
-  const targetThrown = currentlyClosed ? true : !currentlyThrown;
+  // Decide desired logical target: if currently off → on, else → off.
+  // If unknown, default to Off.
+  const currentlyOff = !!record.isOff;
+  const currentlyOn = !!record.isOn;
+  const targetOff = currentlyOn ? true : !currentlyOff;
 
-  const targetRaw = computeRawState(targetThrown, !!record.inverted);
+  const targetRaw = computeRawState(targetOff, !!record.inverted);
 
   try {
-    await updateTurnout(systemName, { state: targetRaw });
+    await updateLight(systemName, { state: targetRaw });
     // Refresh list after change
-    const list = await fetchTurnoutsData();
-    renderTurnoutList(list);
+    const list = await fetchLightsData();
+    renderLightList(list);
     // Optional toast
     try {
-      showToast?.(`Turnout ${targetThrown ? "Thrown" : "Closed"}`);
+      showToast?.(`Light ${targetOff ? "Off" : "On"}`);
     } catch (error) {
       console.warn(error);
     }
